@@ -1,0 +1,181 @@
+/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+// lib/preload/preload.ts
+import { contextBridge, ipcRenderer, IpcRendererEvent, webUtils } from 'electron'
+import api from './api'
+import { BtcliConfig, Subnet, WalletConfig } from '../bittensor/types'
+
+contextBridge.exposeInMainWorld('electron', {
+  invoke: (channel: string, ...args: any[]) => ipcRenderer.invoke(channel, ...args),
+})
+
+export const walletAPI = {
+  saveConfig: (data: WalletConfig): Promise<boolean> =>
+    ipcRenderer.invoke("save-wallet-config", data),
+  saveBtcliConfig: (data: BtcliConfig): Promise<boolean> =>
+    ipcRenderer.invoke("save-os-config", data),
+  loadConfig: (): Promise<WalletConfig[]> =>
+    ipcRenderer.invoke("load-wallet-config"),
+  loadBtcliConfig: (): Promise<BtcliConfig> =>
+    ipcRenderer.invoke("load-os-config"),
+  registerWallet: (data: WalletConfig, subnet_id: number) =>
+    ipcRenderer.invoke("register-bittensor-wallet", data, subnet_id),
+  getMinerLogs: (walletName: string, hotkey: string, subnetId: string, lines: number = 100) => 
+    ipcRenderer.invoke("get-miner-logs", walletName, hotkey, subnetId, lines),
+  getAllMinerLogs: (lines: number = 100): Promise<string[]> => 
+    ipcRenderer.invoke("get-all-miner-logs", lines),
+  getAllMiners: () => ipcRenderer.invoke("get-all-miners"),
+  getWalletStats: (name) => ipcRenderer.invoke("get-wallet-stats", name),
+  getOverallStats: () => ipcRenderer.invoke("get-overall-stats"),
+  getSubnets: () : Promise<Subnet[]> => ipcRenderer.invoke("get-subnets"),
+  executeCommand: (cmd, includePath = false) => ipcRenderer.invoke("exec-btcli-cmd", cmd, includePath),
+  downloadScripts: (name) => ipcRenderer.invoke("download-miner-script", name),
+};
+contextBridge.exposeInMainWorld("bittensorWalletAPI", walletAPI);
+
+// Add global typing
+declare global {
+  interface Window {
+    bittensorWalletAPI: typeof walletAPI
+  }
+}
+
+contextBridge.exposeInMainWorld('api', api)
+
+export interface IngestResult {
+  docId: string
+  chunkCount: number
+  title: string
+  collectionName?: string
+  userId?: string
+  teamId?: string
+  tags?: string[]
+}
+
+export interface IngestConfig {
+  collectionName?: string
+  ollamaEmbedModel?: string
+  userId?: string
+  teamId?: string
+  tags?: string[]
+  qdrantUrl?: string
+}
+
+export interface ChatResponse {
+  answer: string
+  sources: SourceReference[]
+}
+
+export interface SourceReference {
+  content: string
+  source: string
+  type: string
+  url?: string
+  fileName?: string
+  pageNumber?: number
+}
+
+export interface ChatOptions {
+  model?: string
+  temperature?: number
+  k?: number
+  baseUrl?: string
+  collectionName?: string
+}
+
+export interface RAGApiInterface {
+  ingestFilePath: (filePath: string, tags?: string[], config?: IngestConfig) => Promise<IngestResult>
+  ingestURLContent: (content: string, url: string, config?: IngestConfig) => Promise<IngestResult>
+  ingestTextContent: (content: string, title?: string, config?: IngestConfig) => Promise<IngestResult>
+  checkQdrantStatus: () => Promise<{ running: boolean }>
+  listCollections: () => Promise<string[]>
+
+  // Chat Operations
+  chatWithRAG: (query: string, options?: ChatOptions) => Promise<ChatResponse>
+  startStreamingChat: (query: string, options?: ChatOptions) => Promise<{ streamId: string; success: boolean }>
+  cancelStream: (streamId: string) => Promise<{ success: boolean; message: string }>
+
+  // Event Listeners for Streaming
+  onChatChunk: (callback: (data: { streamId: string; chunk: string }) => void) => void
+  onChatComplete: (callback: (data: { streamId: string; result: ChatResponse }) => void) => void
+  onChatError: (callback: (data: { streamId: string; error: string }) => void) => void
+
+  // Remove specific listeners
+  removeChatChunkListener: (callback: Function) => void
+  removeChatCompleteListener: (callback: Function) => void
+  removeChatErrorListener: (callback: Function) => void
+}
+
+// Create a concrete implementation object
+const RAGApi: RAGApiInterface = {
+  ingestFilePath: (filePath, tags = [], config = {}) => ipcRenderer.invoke('rag:ingest:file', filePath, tags, config),
+
+  ingestURLContent: (content, url, config = {}) => ipcRenderer.invoke('rag:ingest:url', content, url, config),
+
+  ingestTextContent: (content, title = 'Pasted_Text_Snippet', config = {}) =>
+    ipcRenderer.invoke('rag:ingest:text', content, title, config),
+
+  checkQdrantStatus: () => ipcRenderer.invoke('rag:qdrant:status'),
+  listCollections: () => ipcRenderer.invoke('rag:qdrant:listCollections'),
+  // Chat Operations
+  chatWithRAG: (query, options = {}) => ipcRenderer.invoke('rag:chat:stream', query, options),
+
+  startStreamingChat: (query, options = {}) => ipcRenderer.invoke('rag:chat:start-stream', query, options),
+
+  cancelStream: (streamId) => ipcRenderer.invoke('rag:chat:cancel-stream', streamId),
+
+  // Event Listeners
+  onChatChunk: (callback) => {
+    const handler = (event: IpcRendererEvent, data: { streamId: string; chunk: string }) => callback(data)
+    ipcRenderer.on('rag:chat:chunk', handler)
+  },
+
+  onChatComplete: (callback) => {
+    const handler = (event: IpcRendererEvent, data: { streamId: string; result: ChatResponse }) => callback(data)
+    ipcRenderer.on('rag:chat:complete', handler)
+  },
+
+  onChatError: (callback) => {
+    const handler = (event: IpcRendererEvent, data: { streamId: string; error: string }) => callback(data)
+    ipcRenderer.on('rag:chat:error', handler)
+  },
+
+  // Remove specific listeners
+  removeChatChunkListener: (callback) => {
+    ipcRenderer.removeListener('rag:chat:chunk', callback as any)
+  },
+
+  removeChatCompleteListener: (callback) => {
+    ipcRenderer.removeListener('rag:chat:complete', callback as any)
+  },
+
+  removeChatErrorListener: (callback) => {
+    ipcRenderer.removeListener('rag:chat:error', callback as any)
+  },
+}
+
+// Remove all listeners utility
+export const removeAllChatListeners = () => {
+  ipcRenderer.removeAllListeners('rag:chat:chunk')
+  ipcRenderer.removeAllListeners('rag:chat:complete')
+  ipcRenderer.removeAllListeners('rag:chat:error')
+}
+
+contextBridge.exposeInMainWorld('RAGApi', RAGApi)
+
+declare global {
+  interface Window {
+    RAGApi: RAGApiInterface
+  }
+}
+
+contextBridge.exposeInMainWorld('fileSystem', {
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
+})
+
+declare global {
+  interface Window {
+    fileSystem: {
+      getPathForFile: (file: File) => string
+    }
+  }
+}

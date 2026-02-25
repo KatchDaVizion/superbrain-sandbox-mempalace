@@ -1,0 +1,3 @@
+btcli wallet transfer -d 5FRprMJiWNdRNNDRo4Xt2UHU6QdH99sPQyZoiKxrUqd31ejv --amount 1 --wallet-name w1 --wallet-path "/Users/jahidul/Library/Application Support/era/wallets" --no-prompt
+btcli wallet list  --wallet-path "/Users/jahidul/Library/Application Support/era/wallets"  
+btcli wallet balance --wallet-name wallet_g9nuykuo  --wallet-path "/Users/jahidul/Library/Application Support/era/wallets"

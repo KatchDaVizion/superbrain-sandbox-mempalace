@@ -1,0 +1,1314 @@
+[
+
+  {
+    "netuid": 0,
+    "name": "τ root",
+    "description": "The Root subnet is Bittensor's central decision-making hub, managing consensus and network governance with a 0.00% emission rate.",
+    "configurations": [
+      {
+        "architecture": "cpu",
+        "label": "Standard CPU (Validation/Staking)",
+        "url": "https://learnbittensor.org/subnets/0"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "Bittensor CLI"
+      }
+    ],
+    "requirements_summary": "Root subnet validation requires minimal compute, mainly stable uptime and staking."
+  },
+  {
+    "netuid": 1,
+    "name": "α apex",
+    "description": "The apex subnet (SN1) focuses on text and agents tasks with 0.00% emission rate and 1.78M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/macrocosm-os/apex"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for text and agent-based AI tasks."
+  },
+  {
+    "netuid": 2,
+    "name": "β omron",
+    "description": "The omron subnet (SN2) focuses on research, cryptography, and verification with 0.01% emission rate and 2.44M token supply.",
+    "configurations": [
+      {
+        "architecture": "cpu",
+        "label": "Standard CPU (High Verification/Network)",
+        "url": "https://github.com/inference-labs-inc/omron-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "Bittensor CLI"
+      }
+    ],
+    "requirements_summary": "Validation/Verification subnet prioritizing strong CPU performance and low network latency."
+  },
+  {
+    "netuid": 3,
+    "name": "γ templar",
+    "description": "The templar subnet focuses on decentralized computing with 0.04% emission rate and 4.17M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/one-covenant/templar"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Requires NVIDIA GPU with CUDA support for compute-intensive workloads."
+  },
+  {
+    "netuid": 4,
+    "name": "δ targon",
+    "description": "The targon subnet operates with 0.02% emission rate and 3.71M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/targon-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI/compute tasks."
+  },
+  {
+    "netuid": 5,
+    "name": "ε kaito",
+    "description": "The kaito subnet with 0.04% emission rate and 3.81M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/kaito-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute and inference workloads."
+  },
+  {
+    "netuid": 6,
+    "name": "ζ infinite",
+    "description": "The infinite subnet with 0.02% emission rate and 3.61M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/infinite-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI/ML tasks."
+  },
+  {
+    "netuid": 7,
+    "name": "η subvortex",
+    "description": "The subvortex subnet with 0.02% emission rate and 3.46M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/subvortex-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU compute for processing tasks."
+  },
+  {
+    "netuid": 8,
+    "name": "θ ptn",
+    "description": "The ptn subnet with 0.03% emission rate and 3.39M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/ptn-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute workloads."
+  },
+  {
+    "netuid": 9,
+    "name": "ι pretrain",
+    "description": "The pretrain subnet focuses on research, text, and pre-training with 0.00% emission rate and 4.09M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "High-VRAM NVIDIA GPU (e.g., A6000/A100)",
+        "url": "https://docs.macrocosmos.ai/subnets/subnet-9-iota/mining"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Training tasks require GPUs with large VRAM capacity (48GB or more)."
+  },
+  {
+    "netuid": 10,
+    "name": "κ sturdy",
+    "description": "The sturdy subnet with 0.03% emission rate and 3.18M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/sturdy-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute tasks."
+  },
+  {
+    "netuid": 11,
+    "name": "λ dippy",
+    "description": "The dippy subnet with 0.02% emission rate and 3.59M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/dippy-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI tasks."
+  },
+  {
+    "netuid": 12,
+    "name": "μ horde",
+    "description": "The horde subnet with 0.02% emission rate and 3.66M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/horde-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU compute for distributed workloads."
+  },
+  {
+    "netuid": 13,
+    "name": "ν dataverse",
+    "description": "The dataverse subnet focuses on data storage and retrieval with 0.01% emission rate and 4.10M token supply.",
+    "configurations": [
+      {
+        "architecture": "cpu",
+        "label": "Standard CPU (High Storage/Network)",
+        "url": "https://github.com/dataverse-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      }
+    ],
+    "requirements_summary": "Prioritizes stable storage and high-bandwidth network connectivity over GPU compute."
+  },
+  {
+    "netuid": 14,
+    "name": "ξ palaidn",
+    "description": "The palaidn subnet with 0.02% emission rate and 3.40M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/palaidn-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 15,
+    "name": "ο deval",
+    "description": "The deval subnet with 0.03% emission rate and 4.13M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/deval-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for AI workloads."
+  },
+  {
+    "netuid": 16,
+    "name": "π bitads",
+    "description": "The bitads subnet with 0.02% emission rate and 3.58M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/bitads-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for processing tasks."
+  },
+  {
+    "netuid": 17,
+    "name": "ρ 3gen",
+    "description": "The 3gen subnet with 0.02% emission rate and 3.40M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/3gen-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU compute for generation tasks."
+  },
+  {
+    "netuid": 18,
+    "name": "σ cortex",
+    "description": "The cortex subnet with 0.03% emission rate and 3.32M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/cortex-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI tasks."
+  },
+  {
+    "netuid": 19,
+    "name": "t inference",
+    "description": "The inference subnet with 0.02% emission rate and 3.59M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/inference-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based inference workloads."
+  },
+  {
+    "netuid": 20,
+    "name": "υ bitagent",
+    "description": "The bitagent subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/bitagent-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for agent tasks."
+  },
+  {
+    "netuid": 21,
+    "name": "φ any-any",
+    "description": "The any-any subnet with 0.03% emission rate and 3.84M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/any-any-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU compute for flexible workloads."
+  },
+  {
+    "netuid": 22,
+    "name": "χ meta",
+    "description": "The meta subnet with 0.02% emission rate and 3.40M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/meta-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for meta tasks."
+  },
+  {
+    "netuid": 23,
+    "name": "ψ social",
+    "description": "The social subnet with 0.02% emission rate and 3.84M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/social-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for social network tasks."
+  },
+  {
+    "netuid": 24,
+    "name": "ω omega",
+    "description": "The omega subnet with 0.02% emission rate and 3.40M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/omega-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 25,
+    "name": "ϛ protein",
+    "description": "The protein subnet focuses on scientific computing with 0.00% emission rate and 4.20M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/protein-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU required for protein folding and molecular simulation tasks."
+  },
+  {
+    "netuid": 119,
+    "name": "Ⴢ vida",
+    "description": "The vida subnet operates with 0.01% emission rate, focusing on AI inference with 3.99M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/vida-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI inference and model serving."
+  },
+  {
+    "netuid": 138,
+    "name": "Ⰴ glagolitic_dobro",
+    "description": "The glagolitic_dobro subnet with 0.37% emission rate and 3.59M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/glagolitic-dobro-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute workloads."
+  },
+  {
+    "netuid": 214,
+    "name": "㄃ hangul_rieul",
+    "description": "The hangul_rieul subnet with 0.20% emission rate and 3.11M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/hangul-rieul-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for processing tasks."
+  },
+  {
+    "netuid": 250,
+    "name": "ዤ ethiopic_glottal_e",
+    "description": "The ethiopic_glottal_e subnet operates with 0.01% emission rate and 3.79M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/ethiopic-glottal-e-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI/ML tasks."
+  },
+  {
+    "netuid": 255,
+    "name": "ዉ ethiopic_wu",
+    "description": "The ethiopic_wu subnet with 0.01% emission rate and 3.89M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/ethiopic-wu-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute and inference workloads."
+  },
+  {
+    "netuid": 275,
+    "name": "अ Patrol",
+    "description": "The Patrol subnet with 0.00% emission rate and 3.38M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/patrol-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based monitoring and detection workloads."
+  },
+  {
+    "netuid": 276,
+    "name": "आ devanagari_aa",
+    "description": "The devanagari_aa subnet with 0.41% emission rate and 3.72M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/devanagari-aa-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 277,
+    "name": "इ muv",
+    "description": "The muv subnet focuses on AI/ML workloads with 0.10% emission rate and 4.06M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/muv-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Requires modern NVIDIA GPU with substantial VRAM for AI/ML inference tasks."
+  },
+  {
+    "netuid": 281,
+    "name": "ऋ DogeTAO",
+    "description": "The DogeTAO subnet with 0.00% emission rate and 4.10M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/dogetao-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI/compute tasks."
+  },
+  {
+    "netuid": 283,
+    "name": "ऍ modules",
+    "description": "The modules subnet with 0.00% emission rate and 28.76k tokens staked.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/modules-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for modular compute tasks."
+  },
+  {
+    "netuid": 284,
+    "name": "ऎ dogelayer",
+    "description": "The dogelayer subnet with 0.00% emission rate and 269.00k token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/dogelayer-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU compute for layer-2 processing tasks."
+  },
+  {
+    "netuid": 286,
+    "name": "क devanagari_ka",
+    "description": "The devanagari_ka subnet with 0.00% emission rate and 28.76k tokens staked.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/devanagari-ka-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 335,
+    "name": "ㇳ llm-battle",
+    "description": "The llm-battle subnet with 0.00% emission rate and 295.13k token supply, featuring mechanism type 2.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/llm-battle-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based LLM inference and comparison workloads."
+  },
+  {
+    "netuid": 366,
+    "name": "ⴱ τaos",
+    "description": "The τaos subnet operates with 0.00% emission rate and 28.76k tokens staked.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/taos-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard AI/compute workload requiring modern NVIDIA GPU."
+  },
+  {
+    "netuid": 26,
+    "name": "ב alchemy",
+    "description": "The alchemy subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/alchemy-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 27,
+    "name": "ג compute",
+    "description": "The compute subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/compute-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute workloads."
+  },
+  {
+    "netuid": 28,
+    "name": "ד oracle",
+    "description": "The oracle subnet with 0.02% emission rate and 3.40M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/oracle-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for oracle services."
+  },
+  {
+    "netuid": 29,
+    "name": "ה coldint",
+    "description": "The coldint subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/coldint-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute tasks."
+  },
+  {
+    "netuid": 30,
+    "name": "ו bet",
+    "description": "The bet subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/bet-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for compute tasks."
+  },
+  {
+    "netuid": 31,
+    "name": "ז naschain",
+    "description": "The naschain subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/naschain-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute workloads."
+  },
+  {
+    "netuid": 32,
+    "name": "ח itsai",
+    "description": "The itsai subnet with 0.02% emission rate and 3.43M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/itsai-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI tasks."
+  },
+  {
+    "netuid": 33,
+    "name": "ט ready",
+    "description": "The ready subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/ready-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for compute tasks."
+  },
+  {
+    "netuid": 34,
+    "name": "י mind",
+    "description": "The mind subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/mind-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for AI/ML tasks."
+  },
+  {
+    "netuid": 35,
+    "name": "ך logic",
+    "description": "The logic subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/logic-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for logic processing."
+  },
+  {
+    "netuid": 36,
+    "name": "כ automata",
+    "description": "The automata subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/automata-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for automated tasks."
+  },
+  {
+    "netuid": 37,
+    "name": "ל tuning",
+    "description": "The tuning subnet with 0.03% emission rate and 3.50M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/tuning-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based subnet for model tuning and optimization."
+  },
+  {
+    "netuid": 38,
+    "name": "ם distributed",
+    "description": "The distributed subnet with 0.02% emission rate and 3.43M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/distributed-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for distributed computing."
+  },
+  {
+    "netuid": 39,
+    "name": "מ edge",
+    "description": "The edge subnet with 0.02% emission rate and 3.43M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/edge-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "GPU-based edge computing workloads."
+  },
+  {
+    "netuid": 40,
+    "name": "ן chunk",
+    "description": "The chunk subnet with 0.02% emission rate and 3.41M token supply.",
+    "configurations": [
+      {
+        "architecture": "nvidia",
+        "label": "Modern NVIDIA GPU (e.g., 3090/4090/A100)",
+        "url": "https://github.com/chunk-subnet"
+      }
+    ],
+    "critical_dependencies": [
+      {
+        "name": "Docker"
+      },
+      {
+        "name": "Python 3.10+"
+      },
+      {
+        "name": "NVIDIA Drivers"
+      }
+    ],
+    "requirements_summary": "Standard GPU requirements for data chunking tasks."
+  }
+]

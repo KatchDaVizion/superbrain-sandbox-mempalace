@@ -1,0 +1,15 @@
+node_modules
+dist
+out
+.DS_Store
+*.log*
+temp
+.env
+yarn.lock
+bun.lockb
+__pycache__/
+*.pyc
+*.pid
+*.key
+*.pem
+venv/

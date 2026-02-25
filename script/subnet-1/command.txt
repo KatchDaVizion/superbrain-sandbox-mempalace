@@ -1,0 +1,16 @@
+Make all scripts executable:
+chmod +x *.sh
+
+Run the setup:
+./setup_miner.sh
+
+Start the miner:
+cd ~/apex-miner
+./start_miner.sh
+
+Submit a solution:
+cd ~/apex-miner
+# First create your solution file
+./submit_apex_solution.sh your_solution.json
+# Or test first
+./submit_apex_solution.sh your_solution.json --test
