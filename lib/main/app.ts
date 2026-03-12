@@ -4,7 +4,7 @@ import { registerWindowIPC } from '@/lib/window/ipcEvents'
 import appIcon from '@/resources/build/supericon.png'
 import { pathToFileURL } from 'url'
 import os from 'os'
-import { execSync } from 'child_process'
+import { execSync, exec } from 'child_process'
 import crypto from 'crypto'
 
 import {
@@ -419,6 +419,124 @@ export const cleanupRAGHandlers = () => {
   })
   activeStreams.clear()
 }
+// -----------------------
+// Network RAG Query (SuperBrain Knowledge Pool)
+// -----------------------
+
+/**
+ * Helper to run a Python script and return parsed JSON output.
+ * Uses the same pattern as miningService.execute() — exec with promise wrapper.
+ */
+function execPython(args: string[], options: { cwd?: string; timeout?: number } = {}): Promise<string> {
+  const cwd = options.cwd || join(__dirname, '../../')
+  const timeout = options.timeout || 30000
+  const cmd = `python3 ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`
+
+  return new Promise((resolve, reject) => {
+    exec(cmd, { cwd, timeout, maxBuffer: 10 * 1024 * 1024 }, (error, stdout, stderr) => {
+      if (error) {
+        console.error('[NetworkRAG] Python error:', stderr || error.message)
+        reject(new Error(stderr || error.message))
+      } else {
+        resolve(stdout)
+      }
+    })
+  })
+}
+
+export interface NetworkQueryResult {
+  text: string
+  citations: number[]
+  sources: NetworkSource[]
+  method: string
+  query: string
+  generation_time: number
+}
+
+export interface NetworkSource {
+  content: string
+  content_hash: string
+  score: number
+  relevance: number
+  freshness: number
+  source: string
+  timestamp: number
+  node_id: string
+}
+
+export interface NetworkSearchResult {
+  results: NetworkSource[]
+}
+
+export interface NetworkPoolStats {
+  total_chunks: number
+  unique_nodes: number
+  oldest_chunk: number | null
+  newest_chunk: number | null
+  embedding_backend: string
+  ollama_available: boolean
+}
+
+/**
+ * Network RAG query — search the collective knowledge pool and get AI-generated answers.
+ * Calls sync/query/network_rag.py via Python subprocess.
+ */
+ipcMain.handle(
+  'superbrain:network:query',
+  async (
+    _event,
+    query: string,
+    options: { dbPath?: string; topK?: number; searchOnly?: boolean } = {}
+  ): Promise<NetworkQueryResult | NetworkSearchResult> => {
+    try {
+      const subnetDir = join(os.homedir(), 'superbrain-subnet')
+      const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
+      const dbPath = options.dbPath || join(subnetDir, 'miner_sync_queue.db')
+      const topK = options.topK || 5
+      const mode = options.searchOnly ? 'search' : 'answer'
+
+      const jsonArgs = JSON.stringify({ query, db_path: dbPath, top_k: topK, mode })
+
+      const stdout = await execPython([scriptPath, jsonArgs], {
+        cwd: subnetDir,
+        timeout: 60000,
+      })
+
+      const result = JSON.parse(stdout.trim())
+      return result
+    } catch (error) {
+      console.error('[NetworkRAG] Query failed:', error)
+      throw new Error(`Network query failed: ${(error as Error).message}`)
+    }
+  }
+)
+
+/**
+ * Network RAG pool stats — get knowledge pool statistics.
+ */
+ipcMain.handle(
+  'superbrain:network:stats',
+  async (_event, options: { dbPath?: string } = {}): Promise<NetworkPoolStats> => {
+    try {
+      const subnetDir = join(os.homedir(), 'superbrain-subnet')
+      const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
+      const dbPath = options.dbPath || join(subnetDir, 'miner_sync_queue.db')
+
+      const jsonArgs = JSON.stringify({ query: '', db_path: dbPath, top_k: 0, mode: 'stats' })
+
+      const stdout = await execPython([scriptPath, jsonArgs], {
+        cwd: subnetDir,
+        timeout: 15000,
+      })
+
+      return JSON.parse(stdout.trim())
+    } catch (error) {
+      console.error('[NetworkRAG] Stats failed:', error)
+      throw new Error(`Network stats failed: ${(error as Error).message}`)
+    }
+  }
+)
+
 // -----------------------
 // Create Main Window
 // -----------------------

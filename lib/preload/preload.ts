@@ -168,6 +168,73 @@ declare global {
   }
 }
 
+// -----------------------
+// Network RAG Query API (SuperBrain Knowledge Pool)
+// -----------------------
+
+export interface NetworkSource {
+  content: string
+  content_hash: string
+  score: number
+  relevance: number
+  freshness: number
+  source: string
+  timestamp: number
+  node_id: string
+}
+
+export interface NetworkQueryResult {
+  text: string
+  citations: number[]
+  sources: NetworkSource[]
+  method: string
+  query: string
+  generation_time: number
+}
+
+export interface NetworkSearchResult {
+  results: NetworkSource[]
+}
+
+export interface NetworkPoolStats {
+  total_chunks: number
+  unique_nodes: number
+  oldest_chunk: number | null
+  newest_chunk: number | null
+  embedding_backend: string
+  ollama_available: boolean
+}
+
+export interface NetworkQueryOptions {
+  dbPath?: string
+  topK?: number
+  searchOnly?: boolean
+}
+
+export interface NetworkRAGApiInterface {
+  query: (query: string, options?: NetworkQueryOptions) => Promise<NetworkQueryResult>
+  search: (query: string, options?: NetworkQueryOptions) => Promise<NetworkSearchResult>
+  stats: (options?: { dbPath?: string }) => Promise<NetworkPoolStats>
+}
+
+const NetworkRAGApi: NetworkRAGApiInterface = {
+  query: (query, options = {}) =>
+    ipcRenderer.invoke('superbrain:network:query', query, { ...options, searchOnly: false }),
+
+  search: (query, options = {}) =>
+    ipcRenderer.invoke('superbrain:network:query', query, { ...options, searchOnly: true }),
+
+  stats: (options = {}) => ipcRenderer.invoke('superbrain:network:stats', options),
+}
+
+contextBridge.exposeInMainWorld('NetworkRAGApi', NetworkRAGApi)
+
+declare global {
+  interface Window {
+    NetworkRAGApi: NetworkRAGApiInterface
+  }
+}
+
 contextBridge.exposeInMainWorld('fileSystem', {
   getPathForFile: (file: File) => webUtils.getPathForFile(file),
 })

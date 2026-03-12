@@ -1,6 +1,6 @@
 // app/components/chat/chatContainer.tsx
 import React, { useState } from 'react'
-import { Shield, Plus, Circle, History } from 'lucide-react'
+import { Shield, Plus, Circle, History, Globe } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import ChatHistory from './chatHistory'
 import MessageArea from './MessageArea'
@@ -32,7 +32,8 @@ interface ChatContainerProps {
   isLoadingThread?: boolean
   canStop?: boolean
   onStopResponse?: () => void
-  chatType?: 'ollama' | 'rag'
+  chatType?: 'ollama' | 'rag' | 'network'
+  networkSourceCount?: number
 }
 
 const ChatContainer = ({
@@ -50,6 +51,7 @@ const ChatContainer = ({
   canStop = false,
   onStopResponse,
   chatType = 'ollama',
+  networkSourceCount = 0,
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
@@ -115,7 +117,7 @@ const ChatContainer = ({
             </div>
             <div>
               <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-green-300' : 'text-green-500'}`}>
-                Private Chat
+                {chatType === 'network' ? 'Network Search' : 'Private Chat'}
               </h3>
               <p className="text-xs text-slate-400 truncate max-w-48">{selectedModel || 'No model selected'}</p>
             </div>
@@ -123,12 +125,23 @@ const ChatContainer = ({
 
           <div className="flex items-center space-x-3">
             {/* Status - More compact */}
-            <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
-              <Circle className="w-2 h-2 fill-emerald-400 text-emerald-400 animate-pulse" />
-              <span className={`text-xs font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-500'}`}>
-                Offline
-              </span>
-            </div>
+            {chatType === 'network' ? (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
+                <Globe className="w-3 h-3 text-blue-400" />
+                <span className={`text-xs font-medium ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`}>
+                  {networkSourceCount > 0
+                    ? `Sourced from ${networkSourceCount} network contributor${networkSourceCount !== 1 ? 's' : ''}`
+                    : 'Network Pool'}
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                <Circle className="w-2 h-2 fill-emerald-400 text-emerald-400 animate-pulse" />
+                <span className={`text-xs font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-500'}`}>
+                  Offline
+                </span>
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-2">
