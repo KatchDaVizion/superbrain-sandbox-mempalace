@@ -1,6 +1,6 @@
 // app/components/chat/chatContainer.tsx
 import React, { useState } from 'react'
-import { Shield, Plus, Circle, History, Globe, Database } from 'lucide-react'
+import { Shield, Plus, Circle, History, Globe, Database, Volume2, VolumeX, Headphones, Square } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import ChatHistory from './chatHistory'
 import MessageArea from './MessageArea'
@@ -46,6 +46,17 @@ interface ChatContainerProps {
   qdrantConnected?: boolean
   useRAG?: boolean
   onToggleRAG?: (value: boolean) => void
+  // Voice props
+  voiceEnabled?: boolean
+  onToggleVoice?: () => void
+  handsFreeMode?: boolean
+  onToggleHandsFree?: () => void
+  isReading?: boolean
+  onStopSpeaking?: () => void
+  // Voice props for ChatInputArea
+  onMicClick?: () => void
+  isListening?: boolean
+  browserSupportsVoice?: boolean
 }
 
 const ChatContainer = ({
@@ -68,6 +79,16 @@ const ChatContainer = ({
   qdrantConnected = false,
   useRAG = true,
   onToggleRAG,
+  // Voice props
+  voiceEnabled = false,
+  onToggleVoice,
+  handsFreeMode = false,
+  onToggleHandsFree,
+  isReading = false,
+  onStopSpeaking,
+  onMicClick,
+  isListening = false,
+  browserSupportsVoice = false,
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
@@ -147,6 +168,64 @@ const ChatContainer = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Voice Controls */}
+            {browserSupportsVoice && (
+              <div className="flex items-center space-x-1">
+                {/* Voice On/Off toggle */}
+                {onToggleVoice && (
+                  <button
+                    onClick={onToggleVoice}
+                    className={`p-1.5 rounded-lg transition-colors text-xs ${
+                      voiceEnabled
+                        ? theme === 'dark'
+                          ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
+                          : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
+                        : theme === 'dark'
+                          ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                    title={voiceEnabled ? 'Disable voice responses' : 'Enable voice responses'}
+                  >
+                    {voiceEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  </button>
+                )}
+
+                {/* Hands Free toggle */}
+                {onToggleHandsFree && (
+                  <button
+                    onClick={onToggleHandsFree}
+                    className={`p-1.5 rounded-lg transition-colors text-xs ${
+                      handsFreeMode
+                        ? theme === 'dark'
+                          ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
+                          : 'bg-green-50 text-green-600 hover:bg-green-100'
+                        : theme === 'dark'
+                          ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
+                          : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                    }`}
+                    title={handsFreeMode ? 'Disable hands-free mode' : 'Enable hands-free mode'}
+                  >
+                    <Headphones className="w-4 h-4" />
+                  </button>
+                )}
+
+                {/* Stop Speaking button */}
+                {isReading && onStopSpeaking && (
+                  <button
+                    onClick={onStopSpeaking}
+                    className={`p-1.5 rounded-lg transition-colors ${
+                      theme === 'dark'
+                        ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
+                        : 'bg-red-50 text-red-600 hover:bg-red-100'
+                    }`}
+                    title="Stop speaking"
+                  >
+                    <Square className="w-3.5 h-3.5" fill="currentColor" />
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* RAG Status Indicator */}
             {chatType === 'ollama' && qdrantConnected && (
               <button
@@ -221,6 +300,19 @@ const ChatContainer = ({
           </div>
         </div>
 
+        {/* Hands-free banner */}
+        {handsFreeMode && (
+          <div className="mb-3 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center space-x-2 animate-pulse">
+            <Headphones className="w-4 h-4 text-green-400" />
+            <span className={`text-xs font-medium ${theme === 'dark' ? 'text-green-300' : 'text-green-600'}`}>
+              Hands-Free Active — {isListening ? 'listening...' : isReading ? 'speaking...' : 'waiting...'}
+            </span>
+            <span className={`text-xs ${theme === 'dark' ? 'text-green-400/60' : 'text-green-500/60'}`}>
+              (press Escape to exit)
+            </span>
+          </div>
+        )}
+
         {/* Messages, Loading State, or Empty State - Now gets much more vertical space */}
         <div className="flex-1 min-h-0">{renderMainContent()}</div>
 
@@ -235,6 +327,9 @@ const ChatContainer = ({
               canStop={canStop}
               onStop={onStopResponse}
               isLoading={isLoading}
+              onMicClick={onMicClick}
+              isListening={isListening}
+              browserSupportsVoice={browserSupportsVoice}
             />
           </div>
         )}

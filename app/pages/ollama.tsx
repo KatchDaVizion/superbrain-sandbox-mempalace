@@ -3,7 +3,7 @@ import { HoverCard, HoverCardTrigger } from '../components/ui/hover-card'
 import { useOllama } from '../hooks/useOllama'
 import { Slider } from '../components/ui/slider'
 import { Switch } from '../components/ui/switch'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTheme } from 'next-themes'
 import ChatContainer from '../components/chat/chatContainer'
 import RightSidebar from '../components/ollama/RightSidebar'
@@ -11,6 +11,7 @@ import DashboardLayout from '../components/shared/DashboardLayout'
 import Header from '../components/ollama/Header'
 import { useLocation } from 'react-router-dom'
 import MobileStatusCards from '../components/ollama/MobileStatusCards'
+import { useVoice } from '../hooks/useVoice'
 
 const OllamaPage = () => {
   const location = useLocation()
@@ -48,6 +49,54 @@ const OllamaPage = () => {
     docCount,
     qdrantConnected,
   } = useOllama()
+
+  // Track previous isLoading state for detecting response completion
+  const prevIsLoadingRef = useRef(isLoading)
+
+  // Voice hook — on transcript received, set input and auto-submit
+  const onTranscript = useCallback(
+    (text: string) => {
+      setInputMessage(text)
+      // Auto-submit after a short delay so the state has time to update
+      setTimeout(() => {
+        handleSendMessage()
+      }, 100)
+    },
+    [setInputMessage, handleSendMessage]
+  )
+
+  const voice = useVoice({
+    onTranscript,
+    onSpeakingEnd: () => {
+      // After speaking finishes, if hands-free mode, auto-start listening
+      if (voice.handsFreeMode) {
+        setTimeout(() => {
+          voice.startListening()
+        }, 500)
+      }
+    },
+  })
+
+  // After assistant response completes, speak it if voice is enabled
+  useEffect(() => {
+    if (prevIsLoadingRef.current && !isLoading && voice.voiceEnabled) {
+      // Find the last assistant message
+      const lastMsg = chatMessages[chatMessages.length - 1]
+      if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content) {
+        voice.speak(lastMsg.content)
+      }
+    }
+    prevIsLoadingRef.current = isLoading
+  }, [isLoading, chatMessages, voice.voiceEnabled])
+
+  // Mic click handler: toggle listening
+  const handleMicClick = useCallback(() => {
+    if (voice.isListening) {
+      voice.stopListening()
+    } else {
+      voice.startListening()
+    }
+  }, [voice.isListening, voice.startListening, voice.stopListening])
 
   // Add a guard so we don't reset on every rerender
   const [initializedFromPassed, setInitializedFromPassed] = useState(false)
@@ -381,6 +430,16 @@ const OllamaPage = () => {
               qdrantConnected={qdrantConnected}
               useRAG={useRAG}
               onToggleRAG={setUseRAG}
+              // Voice props
+              voiceEnabled={voice.voiceEnabled}
+              onToggleVoice={voice.toggleVoice}
+              handsFreeMode={voice.handsFreeMode}
+              onToggleHandsFree={voice.toggleHandsFree}
+              isReading={voice.isReading}
+              onStopSpeaking={voice.stopSpeaking}
+              onMicClick={handleMicClick}
+              isListening={voice.isListening}
+              browserSupportsVoice={voice.browserSupported}
             />
           </div>
         </div>

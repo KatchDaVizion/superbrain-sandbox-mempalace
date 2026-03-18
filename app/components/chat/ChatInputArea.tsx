@@ -1,5 +1,5 @@
 import React from 'react'
-import { Send, Square } from 'lucide-react'
+import { Send, Square, Mic } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 interface ChatInputAreaProps {
@@ -8,10 +8,14 @@ interface ChatInputAreaProps {
   handleSendMessage: () => void
   handleKeyPress: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void
   disabled: boolean
-  // NEW: Add stop functionality props
+  // Stop functionality props
   canStop?: boolean
   onStop?: () => void
   isLoading?: boolean
+  // Voice props
+  onMicClick?: () => void
+  isListening?: boolean
+  browserSupportsVoice?: boolean
 }
 
 const ChatInputArea = ({
@@ -23,6 +27,9 @@ const ChatInputArea = ({
   canStop = false,
   onStop,
   isLoading = false,
+  onMicClick,
+  isListening = false,
+  browserSupportsVoice = false,
 }: ChatInputAreaProps) => {
   const { theme } = useTheme()
 
@@ -48,10 +55,12 @@ const ChatInputArea = ({
           placeholder={
             disabled
               ? 'Select a model to start chatting...'
-              : 'Type your message... (Shift+Enter for new line)'
+              : isListening
+                ? 'Listening...'
+                : 'Type your message... (Shift+Enter for new line)'
           }
           disabled={disabled}
-          className={`w-full min-h-[60px] max-h-32 p-4 pr-16 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors placeholder:text-slate-500 ${
+          className={`w-full min-h-[60px] max-h-32 p-4 pr-24 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-colors placeholder:text-slate-500 ${
             theme === 'dark'
               ? 'bg-transparent text-slate-200'
               : 'bg-transparent text-slate-900'
@@ -60,8 +69,27 @@ const ChatInputArea = ({
           }`}
         />
 
-        {/* Send/Stop Button */}
-        <div className="absolute bottom-3 right-3">
+        {/* Button area */}
+        <div className="absolute bottom-3 right-3 flex items-center space-x-2">
+          {/* Mic Button */}
+          {browserSupportsVoice && onMicClick && (
+            <button
+              onClick={onMicClick}
+              disabled={disabled}
+              className={`p-2 rounded-lg transition-all duration-200 hover:scale-105 disabled:hover:scale-100 disabled:opacity-50 disabled:cursor-not-allowed ${
+                isListening
+                  ? 'bg-red-500 text-white shadow-md animate-pulse'
+                  : theme === 'dark'
+                    ? 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    : 'bg-slate-200 hover:bg-slate-300 text-slate-600'
+              }`}
+              title={isListening ? 'Stop listening' : 'Start voice input'}
+            >
+              <Mic className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Send/Stop Button */}
           {canStop && isLoading ? (
             // Stop Button
             <button
@@ -100,7 +128,18 @@ const ChatInputArea = ({
       {/* Status indicators */}
       <div className="flex items-center justify-between text-xs">
         <div className="flex items-center space-x-4">
-          {isLoading && (
+          {isListening && (
+            <span
+              className={`flex items-center space-x-2 ${
+                theme === 'dark' ? 'text-red-400' : 'text-red-600'
+              }`}
+            >
+              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+              <span>Listening...</span>
+            </span>
+          )}
+
+          {isLoading && !isListening && (
             <span
               className={`flex items-center space-x-2 ${
                 theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
@@ -110,7 +149,7 @@ const ChatInputArea = ({
               <span>Generating response...</span>
             </span>
           )}
-          
+
           {canStop && (
             <span
               className={`flex items-center space-x-2 ${
