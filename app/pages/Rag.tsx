@@ -14,6 +14,7 @@ import QdrantSetupModal from '../components/rag/QdrantSetupModal'
 import { useModels } from '../hooks/useModel'
 import RagHeader from '../components/rag/RagHeader'
 import { useCollections } from '@/lib/chat/CollectionsContext'
+import DocumentInventory from '../components/rag/DocumentInventory'
 
 type AvailableModel = {
   model: string
@@ -552,6 +553,12 @@ const Rag: React.FC = () => {
               Add Document
             </button>
           </div>
+
+          {/* Document Inventory */}
+          <DocumentInventory
+            collectionName={selectedCollection}
+            qdrantConnected={isQdrantRunning}
+          />
 
           {/* Chat Interface */}
           <div className="min-h-[600px]">
