@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Cpu, Bot, Pickaxe, Waves, Box } from 'lucide-react'
+import { Cpu, Bot, Pickaxe, Waves, Box, Globe } from 'lucide-react'
 import logo from '../assets/89573974-0c1c-441f-9d28-51c0c8a16b06.png'
 
 interface SidebarProps {
@@ -59,6 +59,12 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
           path: '/rag',
           icon: Box,
           description: 'Retrieval-Augmented Generation for enhanced AI responses',
+        },
+        {
+          name: 'Network Knowledge',
+          path: '/network',
+          icon: Globe,
+          description: 'Search and share knowledge on the SuperBrain Bittensor subnet',
         },
       ],
     },

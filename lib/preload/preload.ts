@@ -211,10 +211,21 @@ export interface NetworkQueryOptions {
   searchOnly?: boolean
 }
 
+export interface ShareToNetworkResult {
+  success: boolean
+  total_chunks: number
+  new_chunks: number
+  duplicates: number
+  db_path: string
+  error?: string
+}
+
 export interface NetworkRAGApiInterface {
   query: (query: string, options?: NetworkQueryOptions) => Promise<NetworkQueryResult>
   search: (query: string, options?: NetworkQueryOptions) => Promise<NetworkSearchResult>
   stats: (options?: { dbPath?: string }) => Promise<NetworkPoolStats>
+  shareText: (content: string, title?: string) => Promise<ShareToNetworkResult>
+  shareFile: (filePath: string, title?: string) => Promise<ShareToNetworkResult>
 }
 
 const NetworkRAGApi: NetworkRAGApiInterface = {
@@ -225,6 +236,12 @@ const NetworkRAGApi: NetworkRAGApiInterface = {
     ipcRenderer.invoke('superbrain:network:query', query, { ...options, searchOnly: true }),
 
   stats: (options = {}) => ipcRenderer.invoke('superbrain:network:stats', options),
+
+  shareText: (content, title) =>
+    ipcRenderer.invoke('rag:share-to-network', { mode: 'text', content, title }),
+
+  shareFile: (filePath, title) =>
+    ipcRenderer.invoke('rag:share-to-network', { mode: 'file', filePath, title }),
 }
 
 contextBridge.exposeInMainWorld('NetworkRAGApi', NetworkRAGApi)

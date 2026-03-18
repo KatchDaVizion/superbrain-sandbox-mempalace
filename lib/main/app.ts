@@ -491,7 +491,9 @@ ipcMain.handle(
     try {
       const subnetDir = join(os.homedir(), 'superbrain-subnet')
       const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
-      const dbPath = options.dbPath || join(subnetDir, 'miner_sync_queue.db')
+      const dbPath =
+        options.dbPath ||
+        join(os.homedir(), '.bittensor', 'miners', 'sb_miner', 'default', 'netuid442', 'miner', 'miner_sync_queue.db')
       const topK = options.topK || 5
       const mode = options.searchOnly ? 'search' : 'answer'
 
@@ -520,7 +522,9 @@ ipcMain.handle(
     try {
       const subnetDir = join(os.homedir(), 'superbrain-subnet')
       const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
-      const dbPath = options.dbPath || join(subnetDir, 'miner_sync_queue.db')
+      const dbPath =
+        options.dbPath ||
+        join(os.homedir(), '.bittensor', 'miners', 'sb_miner', 'default', 'netuid442', 'miner', 'miner_sync_queue.db')
 
       const jsonArgs = JSON.stringify({ query: '', db_path: dbPath, top_k: 0, mode: 'stats' })
 
@@ -533,6 +537,71 @@ ipcMain.handle(
     } catch (error) {
       console.error('[NetworkRAG] Stats failed:', error)
       throw new Error(`Network stats failed: ${(error as Error).message}`)
+    }
+  }
+)
+
+/**
+ * Share to Network — bridge RAG ingestion to the Bittensor SyncQueue.
+ * Creates Ed25519-signed KnowledgeChunks and adds them to the miner's queue.
+ */
+export interface ShareToNetworkResult {
+  success: boolean
+  total_chunks: number
+  new_chunks: number
+  duplicates: number
+  db_path: string
+  error?: string
+}
+
+ipcMain.handle(
+  'rag:share-to-network',
+  async (
+    _event,
+    payload: { mode: 'text' | 'file'; content?: string; filePath?: string; title?: string }
+  ): Promise<ShareToNetworkResult> => {
+    try {
+      const subnetDir = join(os.homedir(), 'superbrain-subnet')
+      const scriptPath = join(subnetDir, 'scripts', 'share_to_network.py')
+      const dbPath = join(
+        os.homedir(),
+        '.bittensor',
+        'miners',
+        'sb_miner',
+        'default',
+        'netuid442',
+        'miner',
+        'miner_sync_queue.db'
+      )
+
+      const jsonArgs: Record<string, string> = {
+        mode: payload.mode,
+        db_path: dbPath,
+        title: payload.title || '',
+      }
+
+      if (payload.mode === 'file' && payload.filePath) {
+        jsonArgs.file_path = payload.filePath
+      } else if (payload.content) {
+        jsonArgs.content = payload.content
+      }
+
+      const stdout = await execPython([scriptPath, JSON.stringify(jsonArgs)], {
+        cwd: subnetDir,
+        timeout: 60000,
+      })
+
+      return JSON.parse(stdout.trim())
+    } catch (error) {
+      console.error('[ShareToNetwork] Failed:', error)
+      return {
+        success: false,
+        total_chunks: 0,
+        new_chunks: 0,
+        duplicates: 0,
+        db_path: '',
+        error: (error as Error).message,
+      }
     }
   }
 )

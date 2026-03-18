@@ -8,6 +8,7 @@ import MiningPool from './pages/MiningPool'
 import Ocean from './pages/Ocean'
 import Mining from './pages/Mining'
 import Rag from './pages/Rag'
+import NetworkKnowledge from './pages/NetworkKnowledge'
 import { CollectionsProvider } from '@/lib/chat/CollectionsContext'
 
 const queryClient = new QueryClient()
@@ -26,6 +27,7 @@ const App = () => {
                 <Route path="/mining-pool" element={<MiningPool />} />
                 <Route path="/ocean" element={<Ocean />} />
                 <Route path="/rag" element={<Rag />} />
+                <Route path="/network" element={<NetworkKnowledge />} />
               </Routes>
             </HashRouter>
           </TooltipProvider>

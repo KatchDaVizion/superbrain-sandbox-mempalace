@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card'
 import { Badge } from '../ui/badge'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs'
 import { Alert, AlertDescription } from '../ui/alert'
-import { Upload, Link, FileText, X, CheckCircle, AlertCircle, File, Hash } from 'lucide-react'
+import { Upload, Link, FileText, X, CheckCircle, AlertCircle, File, Hash, Globe } from 'lucide-react'
 import { IngestResult } from '@/lib/preload/preload'
 import SelectCollectionModal from './SelectCollectionModal'
 
@@ -34,6 +34,8 @@ const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
   const [showCollectionModal, setShowCollectionModal] = useState(false)
   const [selectedCollection, setSelectedCollection] = useState<string | null>(null)
   const [fileEntries, setFileEntries] = useState<{ file: File; path: string }[]>([])
+  const [shareToNetwork, setShareToNetwork] = useState(false)
+  const [networkShareResult, setNetworkShareResult] = useState<string | null>(null)
 
   // Helpers
   const readFileAsText = (file: File) =>
@@ -163,10 +165,36 @@ const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
         })
       }
 
+      // Share to network if toggled on
+      if (shareToNetwork && result) {
+        setProgress(85)
+        try {
+          let networkResult
+          if (inputType === 'file' && fileEntries.length > 0) {
+            for (const entry of fileEntries) {
+              networkResult = await window.NetworkRAGApi.shareFile(entry.path, result.title)
+            }
+          } else if (inputType === 'url') {
+            networkResult = await window.NetworkRAGApi.shareText(url, result.title)
+          } else if (inputType === 'paste') {
+            networkResult = await window.NetworkRAGApi.shareText(pastedText, result.title)
+          }
+          if (networkResult?.success) {
+            setNetworkShareResult(`Shared ${networkResult.new_chunks} chunk(s) to the network`)
+          } else {
+            setNetworkShareResult(`Network share failed: ${networkResult?.error || 'Unknown error'}`)
+          }
+        } catch (err: any) {
+          setNetworkShareResult(`Network share failed: ${err.message}`)
+        }
+      }
+
       setProgress(100)
 
       const successMessage = {
-        message: 'Document successfully vectorized and indexed.',
+        message: shareToNetwork
+          ? 'Document vectorized and shared to network.'
+          : 'Document successfully vectorized and indexed.',
         document: {
           id: result.docId,
           title: result.title,
@@ -204,6 +232,8 @@ const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
     setError(null)
     setIngestResult(null)
     setSelectedCollection(null)
+    setShareToNetwork(false)
+    setNetworkShareResult(null)
   }
 
   const handleClose = () => {
@@ -363,6 +393,44 @@ const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
               />
               <p className="text-xs text-muted-foreground">Add comma-separated tags for better organization</p>
             </div>
+
+            {/* Share to Network Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Globe className={`h-5 w-5 ${shareToNetwork ? 'text-blue-500' : 'text-muted-foreground'}`} />
+                <div>
+                  <div className="text-sm font-medium">Share to Network</div>
+                  <p className="text-xs text-muted-foreground">
+                    Also share this document to the SuperBrain knowledge network to earn TAO
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shareToNetwork}
+                onClick={() => setShareToNetwork(!shareToNetwork)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                  shareToNetwork ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    shareToNetwork ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Network Share Result */}
+            {networkShareResult && (
+              <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800">
+                <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
+                  {networkShareResult}
+                </AlertDescription>
+              </Alert>
+            )}
 
             {/* Error Alert */}
             {error && (
