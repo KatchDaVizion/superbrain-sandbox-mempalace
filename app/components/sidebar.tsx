@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Cpu, Bot, Pickaxe, Waves, Box, Globe } from 'lucide-react'
+import { MessageSquare, Database, Globe, Settings as SettingsIcon, Home } from 'lucide-react'
 import logo from '../assets/89573974-0c1c-441f-9d28-51c0c8a16b06.png'
 
 interface SidebarProps {
@@ -12,61 +12,29 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
 
   const navigationItems = [
     {
-      category: '',
-      items: [
-        {
-          name: 'AI Models',
-          path: '/',
-          icon: Cpu,
-          description: 'Private local AI models running offline with Ollama',
-        },
-      ],
+      name: 'Home',
+      path: '/',
+      icon: Home,
     },
     {
-      category: 'AI Assistants',
-      items: [
-        {
-          name: 'Ollama (Local AI)',
-          path: '/ollama',
-          icon: Bot,
-          description: 'Ollama powered AI assistant',
-        },
-      ],
+      name: 'AI Chat',
+      path: '/chat',
+      icon: MessageSquare,
     },
     {
-      category: 'Mining & Data',
-      items: [
-        {
-          name: 'TAO Mining',
-          path: '/mining',
-          icon: Pickaxe,
-          description: 'Mine TAO tokens using Bittensor network with your computing power',
-        },
-        {
-          name: 'Mining Pool',
-          path: '/mining-pool',
-          icon: Pickaxe,
-          description: 'Join collaborative mining pools for better rewards and stable income',
-        },
-        {
-          name: 'Ocean Protocol',
-          path: '/ocean',
-          icon: Waves,
-          description: 'Data marketplace and decentralized AI ecosystem monetization',
-        },
-        {
-          name: 'RAG',
-          path: '/rag',
-          icon: Box,
-          description: 'Retrieval-Augmented Generation for enhanced AI responses',
-        },
-        {
-          name: 'Network Knowledge',
-          path: '/network',
-          icon: Globe,
-          description: 'Search and share knowledge on the SuperBrain Bittensor subnet',
-        },
-      ],
+      name: 'My Knowledge',
+      path: '/rag',
+      icon: Database,
+    },
+    {
+      name: 'Network Knowledge',
+      path: '/network',
+      icon: Globe,
+    },
+    {
+      name: 'Settings',
+      path: '/settings',
+      icon: SettingsIcon,
     },
   ]
 
@@ -78,15 +46,6 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
         : 'text-muted-foreground hover:bg-muted hover:text-foreground'
     }`
   }
-
-  const renderNavItem = (item: any) => (
-    <NavLink key={item.name} to={item.path} className={getNavLinkClass(item.path)}>
-      <div className="flex items-center">
-        <item.icon size={20} />
-      </div>
-      {!collapsed && <span className="ml-3">{item.name}</span>}
-    </NavLink>
-  )
 
   return (
     <div
@@ -103,20 +62,20 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
             <div className="w-8 h-8 relative">
               <img
                 src={logo}
-                alt="SuperBrain AI"
+                alt="SuperBrain"
                 className="w-full h-full object-contain filter drop-shadow-sm opacity-90"
                 style={{
                   filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.2))',
                 }}
               />
             </div>
-            <span className="text-foreground font-bold text-lg">SuperBrain AI</span>
+            <span className="text-foreground font-bold text-lg">SuperBrain</span>
           </div>
         ) : (
           <div className="w-8 h-8 relative">
             <img
               src={logo}
-              alt="SuperBrain AI"
+              alt="SuperBrain"
               className="w-full h-full object-contain filter drop-shadow-sm opacity-90"
               style={{
                 filter: 'drop-shadow(0 0 6px rgba(59, 130, 246, 0.2))',
@@ -127,16 +86,14 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
       </div>
 
       {/* Navigation */}
-      <nav className="mt-8 px-3 space-y-8">
-        {navigationItems.map((section, index) => (
-          <div key={section.category}>
-            {!collapsed && (
-              <h4 className="px-2 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                {section.category}
-              </h4>
-            )}
-            <div className="space-y-2">{section.items.map(renderNavItem)}</div>
-          </div>
+      <nav className="mt-8 px-3 space-y-2">
+        {navigationItems.map((item) => (
+          <NavLink key={item.name} to={item.path} className={getNavLinkClass(item.path)}>
+            <div className="flex items-center">
+              <item.icon size={20} />
+            </div>
+            {!collapsed && <span className="ml-3">{item.name}</span>}
+          </NavLink>
         ))}
       </nav>
     </div>
