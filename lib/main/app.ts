@@ -622,6 +622,7 @@ export function createAppWindow() {
     titleBarStyle: 'hiddenInset',
     title: 'SuperBrain AI',
     webPreferences: {
+      webSecurity: false,
       preload: join(__dirname, '../preload/preload.js'),
       sandbox: false,
     },
