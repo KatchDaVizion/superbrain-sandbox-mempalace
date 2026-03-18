@@ -7,6 +7,7 @@ import Ollama from './pages/ollama'
 import Models from './pages/models'
 import Rag from './pages/Rag'
 import NetworkKnowledge from './pages/NetworkKnowledge'
+import NodeMap from './pages/NodeMap'
 import Settings from './pages/Settings'
 import History from './pages/History'
 import { CollectionsProvider } from '@/lib/chat/CollectionsContext'
@@ -27,6 +28,7 @@ const App = () => {
                 <Route path="/models" element={<Models />} />
                 <Route path="/rag" element={<Rag />} />
                 <Route path="/network" element={<NetworkKnowledge />} />
+                <Route path="/nodemap" element={<NodeMap />} />
                 <Route path="/settings" element={<Settings />} />
               </Routes>
             </HashRouter>

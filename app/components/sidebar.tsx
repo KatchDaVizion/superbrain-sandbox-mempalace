@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { MessageSquare, Database, Globe, Settings as SettingsIcon, Home, Cpu, Clock } from 'lucide-react'
+import { MessageSquare, Database, Globe, Settings as SettingsIcon, Home, Cpu, Clock, Wifi } from 'lucide-react'
 import logo from '../assets/89573974-0c1c-441f-9d28-51c0c8a16b06.png'
 
 interface SidebarProps {
@@ -40,6 +40,11 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
       name: 'Network Knowledge',
       path: '/network',
       icon: Globe,
+    },
+    {
+      name: 'Node Map',
+      path: '/nodemap',
+      icon: Wifi,
     },
     {
       name: 'Settings',
