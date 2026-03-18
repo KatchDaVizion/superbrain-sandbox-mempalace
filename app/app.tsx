@@ -8,6 +8,7 @@ import Models from './pages/models'
 import Rag from './pages/Rag'
 import NetworkKnowledge from './pages/NetworkKnowledge'
 import Settings from './pages/Settings'
+import History from './pages/History'
 import { CollectionsProvider } from '@/lib/chat/CollectionsContext'
 
 const queryClient = new QueryClient()
@@ -22,6 +23,7 @@ const App = () => {
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/chat" element={<Ollama />} />
+                <Route path="/history" element={<History />} />
                 <Route path="/models" element={<Models />} />
                 <Route path="/rag" element={<Rag />} />
                 <Route path="/network" element={<NetworkKnowledge />} />

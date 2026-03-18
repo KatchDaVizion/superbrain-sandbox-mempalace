@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { useChatManager } from './useChatManager'
+import { useChatHistory } from './useChatHistory'
 import {
   searchSimilarDocuments,
   checkConnection,
@@ -97,6 +98,9 @@ export const useOllama = () => {
   // Chat thread management via external hook
   const chatManager = useChatManager(selectedModel)
   const { currentThread, createThread, refreshCurrentThread, isLoadingThread } = chatManager
+
+  // Chat history persistence
+  const { addConversation } = useChatHistory()
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const [canStop, setCanStop] = useState<boolean>(false)
@@ -658,6 +662,24 @@ When you use information from the context above, cite the source using [1], [2],
         } catch (backendError) {
           console.error('Failed to save assistant message to backend:', backendError)
         }
+
+        // Save to chat history for the History page
+        try {
+          const title = currentInput.length > 40
+            ? currentInput.substring(0, 40) + '...'
+            : currentInput
+          const realMsgs = chatMessages.filter((m) => !m.id.includes('welcome'))
+          addConversation({
+            id: workingThread.id,
+            title,
+            model: selectedModel,
+            createdAt: new Date().toISOString(),
+            messageCount: realMsgs.length + 2, // +2 for user + assistant just added
+            lastMessage: fullContent.length > 80 ? fullContent.substring(0, 80) + '...' : fullContent,
+          })
+        } catch (historyError) {
+          console.error('Failed to save to chat history:', historyError)
+        }
       }
     } catch (error: any) {
       // Handle different types of errors
@@ -694,6 +716,7 @@ When you use information from the context above, cite the source using [1], [2],
     chatMessages,
     searchRAGContext,
     buildSystemMessage,
+    addConversation,
   ])
 
   /**
