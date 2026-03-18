@@ -1,7 +1,8 @@
-import { Brain, Sparkles, Search, Filter } from 'lucide-react'
+import { Brain, Sparkles, Search, Filter, Globe } from 'lucide-react'
 import { HoverCard, HoverCardTrigger } from '../components/ui/hover-card'
 import { useOllama } from '../hooks/useOllama'
 import { Slider } from '../components/ui/slider'
+import { Switch } from '../components/ui/switch'
 import { useEffect, useState } from 'react'
 import { useTheme } from 'next-themes'
 import ChatContainer from '../components/chat/chatContainer'
@@ -39,9 +40,16 @@ const OllamaPage = () => {
     isLoadingThread,
     canStop,
     stopResponse,
+    // RAG state
+    useRAG,
+    setUseRAG,
+    useNetworkKnowledge,
+    setUseNetworkKnowledge,
+    docCount,
+    qdrantConnected,
   } = useOllama()
 
-  // Add a guard so we don’t reset on every rerender
+  // Add a guard so we don't reset on every rerender
   const [initializedFromPassed, setInitializedFromPassed] = useState(false)
 
   useEffect(() => {
@@ -261,51 +269,93 @@ const OllamaPage = () => {
               )}
             </div>
 
-            {/* Enhanced Creativity Control */}
-            <div
-              className={`backdrop-blur rounded-2xl border p-5 ${
-                theme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
-              }`}
-            >
-              <h3
-                className={`text-lg font-semibold mb-4 flex items-center ${
-                  theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
+            {/* Creativity Control + Network Knowledge Toggle */}
+            <div className="space-y-6">
+              {/* Creativity Control */}
+              <div
+                className={`backdrop-blur rounded-2xl border p-5 ${
+                  theme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
                 }`}
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                Creativity
-              </h3>
-
-              <div className="space-y-4">
-                <div
-                  className={`flex items-center justify-between text-xs ${
-                    theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'
+                <h3
+                  className={`text-lg font-semibold mb-4 flex items-center ${
+                    theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
                   }`}
                 >
-                  <span>Logical</span>
-                  <span>Creative</span>
-                </div>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Creativity
+                </h3>
 
-                <div className="px-1">
-                  <Slider
-                    value={creativity}
-                    onValueChange={setCreativity}
-                    max={1}
-                    min={0}
-                    step={0.1}
-                    className="w-full"
-                  />
-                </div>
-
-                <div className={`text-center p-3 rounded-lg ${theme === 'dark' ? 'bg-muted/30' : 'bg-gray-50'}`}>
+                <div className="space-y-4">
                   <div
-                    className={`text-sm font-semibold mb-1 ${theme === 'dark' ? 'text-purple-300' : 'text-purple-700'}`}
+                    className={`flex items-center justify-between text-xs ${
+                      theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'
+                    }`}
                   >
-                    {getCurrentCreativityLevel().label} Mode
+                    <span>Logical</span>
+                    <span>Creative</span>
                   </div>
-                  <div className={`text-xs ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
-                    {getCurrentCreativityLevel().desc}
+
+                  <div className="px-1">
+                    <Slider
+                      value={creativity}
+                      onValueChange={setCreativity}
+                      max={1}
+                      min={0}
+                      step={0.1}
+                      className="w-full"
+                    />
                   </div>
+
+                  <div className={`text-center p-3 rounded-lg ${theme === 'dark' ? 'bg-muted/30' : 'bg-gray-50'}`}>
+                    <div
+                      className={`text-sm font-semibold mb-1 ${theme === 'dark' ? 'text-purple-300' : 'text-purple-700'}`}
+                    >
+                      {getCurrentCreativityLevel().label} Mode
+                    </div>
+                    <div className={`text-xs ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
+                      {getCurrentCreativityLevel().desc}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Include Network Knowledge Toggle */}
+              <div
+                className={`backdrop-blur rounded-2xl border p-4 ${
+                  theme === 'dark' ? 'bg-card/50 border-blue-500/20' : 'bg-white/80 border-blue-200 shadow-sm'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className={`p-2 rounded-lg ${
+                      useNetworkKnowledge
+                        ? 'bg-blue-500/20'
+                        : theme === 'dark' ? 'bg-slate-700/50' : 'bg-slate-100'
+                    }`}>
+                      <Globe className={`w-4 h-4 ${
+                        useNetworkKnowledge
+                          ? 'text-blue-400'
+                          : theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                      }`} />
+                    </div>
+                    <div>
+                      <p className={`text-sm font-medium ${
+                        theme === 'dark' ? 'text-slate-200' : 'text-slate-700'
+                      }`}>
+                        Include Network Knowledge
+                      </p>
+                      <p className={`text-xs ${
+                        theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                      }`}>
+                        Search Bittensor mining pool for context
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={useNetworkKnowledge}
+                    onCheckedChange={setUseNetworkKnowledge}
+                  />
                 </div>
               </div>
             </div>
@@ -327,6 +377,10 @@ const OllamaPage = () => {
               isLoadingThread={isLoadingThread}
               canStop={canStop}
               onStopResponse={stopResponse}
+              docCount={docCount}
+              qdrantConnected={qdrantConnected}
+              useRAG={useRAG}
+              onToggleRAG={setUseRAG}
             />
           </div>
         </div>

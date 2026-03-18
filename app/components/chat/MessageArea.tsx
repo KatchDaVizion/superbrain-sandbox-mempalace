@@ -5,6 +5,7 @@ import { MathJaxContext } from 'better-react-mathjax'
 import MarkdownAssistance from './MarkDown'
 import ThinkingSection from './ThinkingSection'
 import LoadingIndicator from './LoadingIndicator'
+import SourcesPanel, { type SourceItem } from './SourcesPanel'
 import { getMessageTheme } from '@/app/utils/theme'
 
 type Message = {
@@ -13,6 +14,7 @@ type Message = {
   content: string
   timestamp?: Date
   thinking?: string
+  sources?: SourceItem[]
   __lastUpdate?: number
   __streamingVersion?: number
 }
@@ -64,48 +66,65 @@ const MessageArea = ({ chatMessages, isLoading }: MessageAreaProps) => {
 
             return (
               <div key={streamingKey} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl overflow-hidden shadow-sm ${bubbleTheme}`}>
-                  {/* Main message content */}
-                  <div className="px-4 py-3">
-                    <div className="flex items-center justify-between mb-2 text-xs opacity-70">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium">{msg.role === 'user' ? 'You' : 'Assistant'}</span>
-                        {msg.role === 'assistant' && msg.thinking && (
-                          <div className="flex items-center space-x-1 px-2 py-0.5 bg-purple-500/20 rounded-full">
-                            <Brain className="w-3 h-3 text-purple-400" />
-                            <span className="text-purple-400 text-xs font-medium">with reasoning</span>
-                          </div>
-                        )}
-                        {/* Streaming indicator */}
-                        {msg.role === 'assistant' && msg.__lastUpdate && Date.now() - msg.__lastUpdate < 1000 && (
-                          <div className="flex items-center space-x-1">
-                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                            <span className="text-green-400 text-xs">streaming...</span>
-                          </div>
+                <div className={`max-w-[85%] ${msg.role === 'assistant' ? 'w-full max-w-[85%]' : ''}`}>
+                  <div className={`rounded-2xl overflow-hidden shadow-sm ${bubbleTheme}`}>
+                    {/* Main message content */}
+                    <div className="px-4 py-3">
+                      <div className="flex items-center justify-between mb-2 text-xs opacity-70">
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium">{msg.role === 'user' ? 'You' : 'Assistant'}</span>
+                          {msg.role === 'assistant' && msg.thinking && (
+                            <div className="flex items-center space-x-1 px-2 py-0.5 bg-purple-500/20 rounded-full">
+                              <Brain className="w-3 h-3 text-purple-400" />
+                              <span className="text-purple-400 text-xs font-medium">with reasoning</span>
+                            </div>
+                          )}
+                          {/* RAG sources indicator */}
+                          {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                            <div className="flex items-center space-x-1 px-2 py-0.5 bg-blue-500/20 rounded-full">
+                              <span className={`text-xs font-medium ${
+                                theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+                              }`}>
+                                KB-enhanced
+                              </span>
+                            </div>
+                          )}
+                          {/* Streaming indicator */}
+                          {msg.role === 'assistant' && msg.__lastUpdate && Date.now() - msg.__lastUpdate < 1000 && (
+                            <div className="flex items-center space-x-1">
+                              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                              <span className="text-green-400 text-xs">streaming...</span>
+                            </div>
+                          )}
+                        </div>
+                        {msg.timestamp && (
+                          <span className="opacity-50 text-xs">
+                            {new Date(msg.timestamp).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </span>
                         )}
                       </div>
-                      {msg.timestamp && (
-                        <span className="opacity-50 text-xs">
-                          {new Date(msg.timestamp).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      )}
+
+                      <MathJaxContext config={mathJaxConfig}>
+                        <MarkdownAssistance content={msg.content} />
+                      </MathJaxContext>
                     </div>
 
-                    <MathJaxContext config={mathJaxConfig}>
-                      <MarkdownAssistance content={msg.content} />
-                    </MathJaxContext>
+                    {/* Thinking section */}
+                    {msg.role === 'assistant' && msg.thinking && (
+                      <ThinkingSection
+                        thinking={msg.thinking}
+                        isExpanded={expandedThinking[msg.id] || false}
+                        onToggle={() => toggleThinking(msg.id)}
+                      />
+                    )}
                   </div>
 
-                  {/* Thinking section */}
-                  {msg.role === 'assistant' && msg.thinking && (
-                    <ThinkingSection
-                      thinking={msg.thinking}
-                      isExpanded={expandedThinking[msg.id] || false}
-                      onToggle={() => toggleThinking(msg.id)}
-                    />
+                  {/* Sources panel below the message bubble */}
+                  {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                    <SourcesPanel sources={msg.sources} />
                   )}
                 </div>
               </div>

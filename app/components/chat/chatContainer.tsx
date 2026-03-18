@@ -1,6 +1,6 @@
 // app/components/chat/chatContainer.tsx
 import React, { useState } from 'react'
-import { Shield, Plus, Circle, History, Globe } from 'lucide-react'
+import { Shield, Plus, Circle, History, Globe, Database } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import ChatHistory from './chatHistory'
 import MessageArea from './MessageArea'
@@ -10,11 +10,19 @@ import { getButtonTheme } from '@/app/utils/theme'
 import ThreadSelectionLoader from './ThreadSelectionLoader'
 import ChatHistoryLoader from './ChatHistoryLoader'
 
+type SourceItem = {
+  content: string
+  source: string
+  score: number
+  metadata: Record<string, any>
+}
+
 type Message = {
   id: string
   role: 'user' | 'assistant'
   content: string
   timestamp?: Date
+  sources?: SourceItem[]
 }
 
 interface ChatContainerProps {
@@ -34,6 +42,10 @@ interface ChatContainerProps {
   onStopResponse?: () => void
   chatType?: 'ollama' | 'rag' | 'network'
   networkSourceCount?: number
+  docCount?: number
+  qdrantConnected?: boolean
+  useRAG?: boolean
+  onToggleRAG?: (value: boolean) => void
 }
 
 const ChatContainer = ({
@@ -52,6 +64,10 @@ const ChatContainer = ({
   onStopResponse,
   chatType = 'ollama',
   networkSourceCount = 0,
+  docCount = 0,
+  qdrantConnected = false,
+  useRAG = true,
+  onToggleRAG,
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
@@ -83,7 +99,14 @@ const ChatContainer = ({
 
     // Show empty state when no chat started and not loading
     if (!hasChatStarted && !isLoadingHistory && !isLoadingThread) {
-      return <EmptyState selectedModel={selectedModel} onStartChat={handleStartNewChat} />
+      return (
+        <EmptyState
+          selectedModel={selectedModel}
+          onStartChat={handleStartNewChat}
+          docCount={docCount}
+          qdrantConnected={qdrantConnected}
+        />
+      )
     }
 
     // Show messages when chat has started and not loading thread
@@ -124,6 +147,33 @@ const ChatContainer = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* RAG Status Indicator */}
+            {chatType === 'ollama' && qdrantConnected && (
+              <button
+                onClick={() => onToggleRAG && onToggleRAG(!useRAG)}
+                className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border transition-colors text-xs font-medium ${
+                  useRAG
+                    ? theme === 'dark'
+                      ? 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'
+                      : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                    : theme === 'dark'
+                      ? 'bg-slate-800/50 border-slate-600/30 text-slate-400 hover:bg-slate-700/50'
+                      : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
+                }`}
+                title={useRAG ? 'Knowledge base active - click to disable' : 'Knowledge base disabled - click to enable'}
+              >
+                <Database className={`w-3 h-3 ${useRAG ? 'text-blue-400' : 'text-slate-400'}`} />
+                <span>KB {useRAG ? 'On' : 'Off'}</span>
+                {useRAG && docCount > 0 && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+                    theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
+                  }`}>
+                    {docCount}
+                  </span>
+                )}
+              </button>
+            )}
+
             {/* Status - More compact */}
             {chatType === 'network' ? (
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
@@ -147,7 +197,7 @@ const ChatContainer = ({
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleStartNewChat}
-                disabled={!selectedModel || isLoadingHistory || isLoadingThread} // NEW: Disable during thread loading
+                disabled={!selectedModel || isLoadingHistory || isLoadingThread}
                 className={`flex items-center space-x-2 px-3 py-2 ${newChatButtonTheme} cursor-pointer disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-all duration-200 hover:shadow-lg hover:scale-[1.02] disabled:hover:scale-100 text-sm`}
                 title="Start a new conversation"
               >
@@ -157,7 +207,7 @@ const ChatContainer = ({
 
               <button
                 onClick={() => setShowHistory((prev) => !prev)}
-                disabled={isLoadingHistory || isLoadingThread} // NEW: Disable during thread loading
+                disabled={isLoadingHistory || isLoadingThread}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
                   showHistory
                     ? 'bg-slate-600 text-slate-200 hover:bg-slate-500'

@@ -1,5 +1,5 @@
 /**
- * Enhanced useOllama Hook - Main chat management hook
+ * Enhanced useOllama Hook - Main chat management hook with RAG integration
  *
  * This hook manages the complete chat flow including:
  * - Model selection and availability (TEXT MODELS ONLY - Embedding models are filtered out)
@@ -7,11 +7,18 @@
  * - Thread creation and management
  * - Message sending with proper error handling
  * - Model readiness checking for newly installed models
+ * - RAG context injection from local Qdrant vector store
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 import { useChatManager } from './useChatManager'
+import {
+  searchSimilarDocuments,
+  checkConnection,
+  initializeVectorStore,
+  type RetrievedDocWithScore,
+} from '../services/rag/vectorStore'
 
 // ------------------ Type Definitions ------------------
 
@@ -31,14 +38,25 @@ export type Model = {
 }
 
 /**
+ * A source reference returned from RAG search
+ */
+export type RAGSource = {
+  content: string
+  source: string
+  score: number
+  metadata: Record<string, any>
+}
+
+/**
  * Represents a chat message in the conversation
  */
 export type ChatMessage = {
-  id: string // Unique identifier for each message
-  role: 'user' | 'assistant' // Message sender type
-  content: string // Message text content
-  timestamp: Date | undefined // When the message was sent
-  thinking?: string // Optional reasoning content for assistant messages
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: Date | undefined
+  thinking?: string
+  sources?: RAGSource[]
 }
 
 /**
@@ -68,7 +86,14 @@ export const useOllama = () => {
   const [inputMessage, setInputMessage] = useState<string>('')
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false)
-  
+
+  // RAG State
+  const [ragSources, setRagSources] = useState<RAGSource[]>([])
+  const [useRAG, setUseRAG] = useState<boolean>(true)
+  const [useNetworkKnowledge, setUseNetworkKnowledge] = useState<boolean>(false)
+  const [docCount, setDocCount] = useState<number>(0)
+  const [qdrantConnected, setQdrantConnected] = useState<boolean>(false)
+
   // Chat thread management via external hook
   const chatManager = useChatManager(selectedModel)
   const { currentThread, createThread, refreshCurrentThread, isLoadingThread } = chatManager
@@ -100,6 +125,43 @@ export const useOllama = () => {
    */
   const selectedModelData = availableModels.find((m) => m.model === selectedModel) || null
 
+  // ------------------- Qdrant Connection Check -------------------
+
+  /**
+   * Check Qdrant connection and count documents on mount
+   */
+  useEffect(() => {
+    const checkQdrant = async () => {
+      try {
+        const connected = await checkConnection()
+        setQdrantConnected(connected)
+
+        if (connected) {
+          // Initialize the vector store so search works later
+          await initializeVectorStore()
+
+          // Try to get document count from Qdrant
+          try {
+            const response = await fetch('http://localhost:6333/collections/sb_docs_v1_ollama')
+            if (response.ok) {
+              const data = await response.json()
+              const count = data?.result?.points_count || 0
+              setDocCount(count)
+            }
+          } catch {
+            // Qdrant is up but collection may not exist yet
+            setDocCount(0)
+          }
+        }
+      } catch {
+        setQdrantConnected(false)
+        setDocCount(0)
+      }
+    }
+
+    checkQdrant()
+  }, [])
+
   // ------------------- Model Management -------------------
 
   /**
@@ -113,10 +175,10 @@ export const useOllama = () => {
 
         const allModels: Model[] = res.data.models.map((m: any) => {
           // Detect if it's an embedding model
-          const isEmbedding = m.name.toLowerCase().includes('embed') || 
+          const isEmbedding = m.name.toLowerCase().includes('embed') ||
                              m.model.toLowerCase().includes('embed') ||
                              m.details?.family?.toLowerCase().includes('embed')
-          
+
           return {
             name: m.name,
             model: m.model,
@@ -130,7 +192,7 @@ export const useOllama = () => {
           }
         })
 
-        // ✅ FILTER OUT EMBEDDING MODELS - Only show text/language models
+        // FILTER OUT EMBEDDING MODELS - Only show text/language models
         const textModels = allModels.filter(m => !m.isEmbedding && m.type !== 'embedding')
 
         setAvailableModels(textModels)
@@ -199,17 +261,17 @@ export const useOllama = () => {
         setIsLoadingHistory(false)
         return
       }
-      
+
       setIsLoadingHistory(true)
       try {
         // Add a small delay to show loader (optional)
         await new Promise(resolve => setTimeout(resolve, 300))
-        
+
         // Find the latest thread for the current model
-        const modelThreads = chatManager.threads.filter(thread => 
+        const modelThreads = chatManager.threads.filter(thread =>
           thread.modelId === selectedModel
         )
-        
+
         if (modelThreads.length > 0) {
           // Sort by lastTimestamp to get the most recent
           const latestThread = modelThreads.sort((a, b) => {
@@ -217,7 +279,7 @@ export const useOllama = () => {
             const timeB = b.lastTimestamp ? new Date(b.lastTimestamp).getTime() : 0
             return timeB - timeA
           })[0]
-          
+
           // Select the latest thread
           await chatManager.selectThread(latestThread.id)
         }
@@ -290,7 +352,7 @@ export const useOllama = () => {
           stream: false,
           options: {
             temperature: 0.1,
-            num_predict: 1, // Request minimal response to test readiness
+            num_predict: 1,
           },
         }),
       })
@@ -335,7 +397,7 @@ export const useOllama = () => {
             threadId: currentThread.id,
             message: {
               role: 'assistant',
-              content: lastMessage.content, // Save the partial content
+              content: lastMessage.content,
             },
           })
         } catch (error) {
@@ -361,7 +423,47 @@ export const useOllama = () => {
   }, [currentThread, selectedModel, chatMessages])
 
   /**
-   * Enhanced message sending with proper user message display
+   * Search Qdrant for relevant documents to use as context.
+   * Best-effort: returns empty array if anything fails.
+   */
+  const searchRAGContext = useCallback(
+    async (query: string): Promise<RetrievedDocWithScore[]> => {
+      if (!useRAG || !qdrantConnected) {
+        return []
+      }
+
+      try {
+        const results = await searchSimilarDocuments(query, 3)
+        return results
+      } catch (error) {
+        console.warn('RAG search failed (best-effort skip):', error)
+        return []
+      }
+    },
+    [useRAG, qdrantConnected]
+  )
+
+  /**
+   * Build a system message with RAG context
+   */
+  const buildSystemMessage = useCallback((ragDocs: RetrievedDocWithScore[]): string | null => {
+    if (ragDocs.length === 0) return null
+
+    const contextParts = ragDocs.map((doc, idx) => {
+      const source = doc.metadata?.source || doc.metadata?.fileName || 'Unknown'
+      return `[${idx + 1}] (Source: ${source})\n${doc.pageContent.substring(0, 500)}`
+    })
+
+    return `You are a helpful AI assistant. Use the following knowledge base documents to inform your answers when relevant. If the context is not relevant to the question, you may ignore it and answer from your general knowledge.
+
+Knowledge Base Context:
+${contextParts.join('\n\n')}
+
+When you use information from the context above, cite the source using [1], [2], etc. notation. If you do not use the context, no citation is needed.`
+  }, [])
+
+  /**
+   * Enhanced message sending with RAG context injection
    */
   const handleSendMessage = useCallback(async (): Promise<void> => {
     // Pre-flight checks
@@ -384,7 +486,7 @@ export const useOllama = () => {
 
     setChatMessages((prev) => [...prev, userMessage])
     setIsLoading(true)
-    setCanStop(true) // Enable stop button
+    setCanStop(true)
 
     let workingThread = currentThread
 
@@ -425,12 +527,35 @@ export const useOllama = () => {
         console.error('Failed to save user message to backend:', backendError)
       }
 
+      // --- RAG Context Injection (best-effort) ---
+      const ragDocs = await searchRAGContext(currentInput)
+      const systemPrompt = buildSystemMessage(ragDocs)
+
+      // Convert RAG docs to sources for display
+      const messageSources: RAGSource[] = ragDocs.map((doc) => ({
+        content: doc.pageContent.substring(0, 300),
+        source: doc.metadata?.source || doc.metadata?.fileName || 'Unknown',
+        score: doc.score,
+        metadata: doc.metadata,
+      }))
+
+      // Update current ragSources state
+      setRagSources(messageSources)
+
+      // Build the messages array for Ollama
+      const ollamaMessages: Array<{ role: string; content: string }> = []
+      if (systemPrompt) {
+        ollamaMessages.push({ role: 'system', content: systemPrompt })
+      }
+      ollamaMessages.push({ role: 'user', content: currentInput })
+
       // Create assistant message placeholder
       const assistantMessage: ChatMessage = {
         id: `${Date.now()}-assistant`,
         role: 'assistant',
         content: '',
         timestamp: new Date(),
+        sources: messageSources.length > 0 ? messageSources : undefined,
       }
 
       setChatMessages((prev) => [...prev, assistantMessage])
@@ -445,7 +570,7 @@ export const useOllama = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: selectedModel,
-          messages: [{ role: 'user', content: currentInput }],
+          messages: ollamaMessages,
           stream: true,
           options: { temperature: creativity[0] },
         }),
@@ -488,12 +613,16 @@ export const useOllama = () => {
                 hasReceivedContent = true
                 fullContent += data.message.content
 
-                // Update UI with streaming content
+                // Update UI with streaming content (preserve sources)
                 setChatMessages((prev) => {
                   const msgs = [...prev]
                   const idx = msgs.findIndex((m) => m.id === assistantMessage.id)
                   if (idx !== -1) {
-                    msgs[idx] = { ...msgs[idx], content: fullContent }
+                    msgs[idx] = {
+                      ...msgs[idx],
+                      content: fullContent,
+                      sources: messageSources.length > 0 ? messageSources : undefined,
+                    }
                   }
                   return msgs
                 })
@@ -503,7 +632,12 @@ export const useOllama = () => {
                 throw new Error(data.error)
               }
             } catch (parseError) {
-              console.warn('Failed to parse streaming chunk:', parseError)
+              // Suppress incomplete JSON parse errors during streaming
+              if (parseError instanceof Error && parseError.message.includes('Unexpected')) {
+                // Expected during streaming - chunks may be partial
+              } else {
+                console.warn('Failed to parse streaming chunk:', parseError)
+              }
             }
           }
         }
@@ -529,7 +663,6 @@ export const useOllama = () => {
       // Handle different types of errors
       if (error.name === 'AbortError') {
         console.log('Request was aborted by user')
-        // Message already updated in stopResponse function
       } else {
         console.error('Chat operation failed:', error)
 
@@ -538,7 +671,7 @@ export const useOllama = () => {
             if (m.id.includes('assistant') && m.content === '') {
               return {
                 ...m,
-                content: `⚠️ Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                content: `Failed to generate response: ${error instanceof Error ? error.message : 'Unknown error'}`,
               }
             }
             return m
@@ -559,6 +692,8 @@ export const useOllama = () => {
     createThread,
     refreshCurrentThread,
     chatMessages,
+    searchRAGContext,
+    buildSystemMessage,
   ])
 
   /**
@@ -577,6 +712,7 @@ export const useOllama = () => {
   const clearConversation = useCallback(async (): Promise<void> => {
     console.log('useOllama - Clearing conversation')
     setChatMessages([])
+    setRagSources([])
     await createNewChat()
   }, [createNewChat])
 
@@ -603,7 +739,7 @@ export const useOllama = () => {
     toggleSidebar,
 
     // Model Management (TEXT MODELS ONLY)
-    availableModels, // This now contains only text/language models
+    availableModels,
     selectedModel,
     setSelectedModel,
     selectedModelData,
@@ -629,12 +765,21 @@ export const useOllama = () => {
     isLoading,
     isLoadingHistory,
     isLoadingThread,
-    
+
     // External Dependencies
     chatManager,
 
     // Stop functionality
     stopResponse,
     canStop,
+
+    // RAG State
+    ragSources,
+    useRAG,
+    setUseRAG,
+    useNetworkKnowledge,
+    setUseNetworkKnowledge,
+    docCount,
+    qdrantConnected,
   }
 }
