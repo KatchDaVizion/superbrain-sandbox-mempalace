@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/shared/DashboardLayout'
+import ShareHistory from '../components/chat/ShareHistory'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react'
 
@@ -203,6 +204,18 @@ const Settings = () => {
           </div>
         </div>
 
+
+        {/* Network Sharing History */}
+        <div
+          className={`border rounded-lg p-6 mb-4 ${
+            theme === "dark" ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"
+          }`}
+        >
+          <h2 className={`text-lg font-semibold mb-4 ${theme === "dark" ? "text-white" : "text-gray-900"}`}>
+            Network Sharing
+          </h2>
+          <ShareHistory />
+        </div>
         {/* About */}
         <div
           className={`border rounded-lg p-6 ${

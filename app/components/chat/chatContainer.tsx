@@ -9,6 +9,7 @@ import EmptyState from './EmptyState'
 import { getButtonTheme } from '@/app/utils/theme'
 import ThreadSelectionLoader from './ThreadSelectionLoader'
 import ChatHistoryLoader from './ChatHistoryLoader'
+import ShareInsightsBanner from './ShareInsightsBanner'
 
 type SourceItem = {
   content: string
@@ -57,6 +58,13 @@ interface ChatContainerProps {
   onMicClick?: () => void
   isListening?: boolean
   browserSupportsVoice?: boolean
+  // Learning props
+  showShareBanner?: boolean
+  insightCount?: number
+  onShareInsights?: () => Promise<void>
+  onKeepPrivate?: () => void
+  isSharing?: boolean
+  confirmationText?: string
 }
 
 const ChatContainer = ({
@@ -89,6 +97,13 @@ const ChatContainer = ({
   onMicClick,
   isListening = false,
   browserSupportsVoice = false,
+  // Learning
+  showShareBanner = false,
+  insightCount = 0,
+  onShareInsights,
+  onKeepPrivate,
+  isSharing = false,
+  confirmationText,
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
@@ -314,7 +329,16 @@ const ChatContainer = ({
         )}
 
         {/* Messages, Loading State, or Empty State - Now gets much more vertical space */}
-        <div className="flex-1 min-h-0">{renderMainContent()}</div>
+        {showShareBanner && insightCount > 0 && onShareInsights && onKeepPrivate && (
+              <ShareInsightsBanner
+                insightCount={insightCount}
+                onShare={onShareInsights}
+                onKeepPrivate={onKeepPrivate}
+                isSharing={isSharing}
+                confirmationText={confirmationText}
+              />
+            )}
+            <div className="flex-1 min-h-0">{renderMainContent()}</div>
 
         {hasChatStarted && !isLoadingHistory && !isLoadingThread && (
           <div className="mt-4">

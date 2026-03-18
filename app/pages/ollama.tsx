@@ -12,6 +12,7 @@ import Header from '../components/ollama/Header'
 import { useLocation } from 'react-router-dom'
 import MobileStatusCards from '../components/ollama/MobileStatusCards'
 import { useVoice } from '../hooks/useVoice'
+import { useConversationLearning } from '../hooks/useConversationLearning'
 
 const OllamaPage = () => {
   const location = useLocation()
@@ -65,6 +66,19 @@ const OllamaPage = () => {
     [setInputMessage, handleSendMessage]
   )
 
+
+  // Conversation learning hook
+  const learning = useConversationLearning()
+
+  // Track messages for conversation learning
+  useEffect(() => {
+    if (chatMessages.length > 0) {
+      const lastMsg = chatMessages[chatMessages.length - 1]
+      if (lastMsg && lastMsg.content && !lastMsg.id.includes("welcome")) {
+        learning.addMessage(lastMsg.role, lastMsg.content)
+      }
+    }
+  }, [chatMessages.length])
   const voice = useVoice({
     onTranscript,
     onSpeakingEnd: () => {
@@ -440,6 +454,13 @@ const OllamaPage = () => {
               onMicClick={handleMicClick}
               isListening={voice.isListening}
               browserSupportsVoice={voice.browserSupported}
+              // Learning props
+              showShareBanner={learning.showShareBanner}
+              insightCount={learning.pendingInsights.length}
+              onShareInsights={learning.shareToNetwork}
+              onKeepPrivate={learning.keepPrivate}
+              isSharing={learning.isSharing}
+              confirmationText={learning.confirmationText}
             />
           </div>
         </div>
