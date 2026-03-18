@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { MessageSquare, Database, Globe, Settings as SettingsIcon, Home } from 'lucide-react'
+import { MessageSquare, Database, Globe, Settings as SettingsIcon, Home, Cpu } from 'lucide-react'
 import logo from '../assets/89573974-0c1c-441f-9d28-51c0c8a16b06.png'
 
 interface SidebarProps {
@@ -20,6 +20,11 @@ export const Sidebar = ({ collapsed }: SidebarProps) => {
       name: 'AI Chat',
       path: '/chat',
       icon: MessageSquare,
+    },
+    {
+      name: 'AI Models',
+      path: '/models',
+      icon: Cpu,
     },
     {
       name: 'My Knowledge',
