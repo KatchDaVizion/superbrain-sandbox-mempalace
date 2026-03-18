@@ -1,3 +1,4 @@
+import 'leaflet/dist/leaflet.css'
 import { Routes, Route, HashRouter } from 'react-router-dom'
 import { ThemeProvider } from 'next-themes'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'

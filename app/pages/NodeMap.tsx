@@ -1,225 +1,290 @@
-import { useEffect, useState, useRef } from 'react'
-import DashboardLayout from '../components/shared/DashboardLayout'
-import { useTheme } from 'next-themes'
-import { Globe, Wifi, Shield, Activity } from 'lucide-react'
+import { useEffect, useRef, useState } from "react"
+import DashboardLayout from "../components/shared/DashboardLayout"
+import { useTheme } from "next-themes"
+import { Shield, Wifi, Activity, Globe, Eye, EyeOff } from "lucide-react"
 
 interface NetworkNode {
   id: string
-  nodeId: string
+  lat: number
+  lng: number
   chunkCount: number
-  lastSeen: number
-  syncLayer: 'lan' | 'i2p' | 'testnet'
+  syncLayer: "lan" | "i2p" | "testnet"
   isCurrentNode: boolean
+  region: string
 }
 
 interface Connection {
   from: string
   to: string
   active: boolean
-  layer: 'lan' | 'i2p' | 'testnet'
+  layer: "lan" | "i2p" | "testnet"
+}
+
+const LAYER_COLORS = {
+  lan: "#6366f1",
+  i2p: "#10b981",
+  testnet: "#f59e0b"
+}
+
+const REGION_CENTERS: Record<string, [number, number]> = {
+  "Canada": [56.1304, -106.3468],
+  "USA": [37.0902, -95.7129],
+  "Europe": [54.5260, 15.2551],
+  "Asia": [34.0479, 100.6197],
+  "Africa": [8.7832, 34.5085],
+  "South America": [-8.7832, -55.4915],
+  "Oceania": [-25.2744, 133.7751],
+  "Unknown": [20.0, 0.0]
+}
+
+function randomOffset(range: number): number {
+  return (Math.random() - 0.5) * range * 2
+}
+
+function getApproxPosition(region: string): [number, number] {
+  const base = REGION_CENTERS[region] || REGION_CENTERS["Unknown"]
+  return [base[0] + randomOffset(8), base[1] + randomOffset(12)]
+}
+
+function getMockNodes(): NetworkNode[] {
+  return [
+    { id: "1", lat: 0, lng: 0, chunkCount: 14, syncLayer: "lan", isCurrentNode: true, region: "Canada" },
+    { id: "2", lat: 0, lng: 0, chunkCount: 23, syncLayer: "lan", isCurrentNode: false, region: "Canada" },
+    { id: "3", lat: 0, lng: 0, chunkCount: 8, syncLayer: "i2p", isCurrentNode: false, region: "Europe" },
+    { id: "4", lat: 0, lng: 0, chunkCount: 2, syncLayer: "i2p", isCurrentNode: false, region: "Asia" },
+    { id: "5", lat: 0, lng: 0, chunkCount: 5, syncLayer: "testnet", isCurrentNode: false, region: "USA" },
+  ].map(n => {
+    const pos = getApproxPosition(n.region)
+    return { ...n, lat: pos[0], lng: pos[1] }
+  })
+}
+
+function getMockConnections(): Connection[] {
+  return [
+    { from: "1", to: "2", active: true, layer: "lan" },
+    { from: "1", to: "3", active: true, layer: "i2p" },
+    { from: "3", to: "4", active: true, layer: "i2p" },
+    { from: "1", to: "5", active: false, layer: "testnet" },
+  ]
 }
 
 export default function NodeMap() {
   const { theme } = useTheme()
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+  const mapInstanceRef = useRef<any>(null)
   const [nodes, setNodes] = useState<NetworkNode[]>([])
   const [connections, setConnections] = useState<Connection[]>([])
-  const [stats, setStats] = useState({ totalNodes: 0, totalChunks: 0, activeConnections: 0 })
-  const [syncLayer, setSyncLayer] = useState<'all' | 'lan' | 'i2p' | 'testnet'>('all')
-  const isDark = theme === 'dark'
+  const [filter, setFilter] = useState<"all" | "lan" | "i2p" | "testnet">("all")
+  const [privacyMode, setPrivacyMode] = useState(true)
+  const [stats, setStats] = useState({ nodes: 0, chunks: 0, connections: 0 })
+  const isDark = theme === "dark"
 
   useEffect(() => {
-    loadNetworkState()
-    const interval = setInterval(loadNetworkState, 10000)
-    return () => clearInterval(interval)
+    const n = getMockNodes()
+    const c = getMockConnections()
+    setNodes(n)
+    setConnections(c)
+    setStats({
+      nodes: n.length,
+      chunks: n.reduce((a, b) => a + b.chunkCount, 0),
+      connections: c.filter(x => x.active).length
+    })
   }, [])
 
-  const loadNetworkState = async () => {
-    try {
-      const result = await window.electron?.ipcRenderer?.invoke('get-network-state') || getMockState()
-      setNodes(result.nodes || getMockState().nodes)
-      setConnections(result.connections || getMockState().connections)
-      setStats({
-        totalNodes: result.nodes?.length || 0,
-        totalChunks: result.nodes?.reduce((a: number, n: NetworkNode) => a + n.chunkCount, 0) || 0,
-        activeConnections: result.connections?.filter((c: Connection) => c.active).length || 0
-      })
-    } catch {
-      const mock = getMockState()
-      setNodes(mock.nodes)
-      setConnections(mock.connections)
-      setStats({ totalNodes: mock.nodes.length, totalChunks: 47, activeConnections: 2 })
-    }
-  }
-
-  const getMockState = () => ({
-    nodes: [
-      { id: '1', nodeId: 'node-a8f2...3k9', chunkCount: 14, lastSeen: Date.now(), syncLayer: 'lan' as const, isCurrentNode: true },
-      { id: '2', nodeId: 'node-x7m1...9p2', chunkCount: 23, lastSeen: Date.now() - 30000, syncLayer: 'lan' as const, isCurrentNode: false },
-      { id: '3', nodeId: 'node-q4r8...7n1', chunkCount: 8, lastSeen: Date.now() - 120000, syncLayer: 'i2p' as const, isCurrentNode: false },
-      { id: '4', nodeId: 'node-b2k5...4m7', chunkCount: 2, lastSeen: Date.now() - 300000, syncLayer: 'testnet' as const, isCurrentNode: false },
-    ],
-    connections: [
-      { from: '1', to: '2', active: true, layer: 'lan' as const },
-      { from: '1', to: '3', active: true, layer: 'i2p' as const },
-      { from: '2', to: '4', active: false, layer: 'testnet' as const },
-    ]
-  })
-
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || nodes.length === 0) return
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    if (!mapRef.current || nodes.length === 0) return
 
-    canvas.width = canvas.offsetWidth
-    canvas.height = canvas.offsetHeight
+    const initMap = async () => {
+      try {
+        const L = await import("leaflet")
+        delete (L.Icon.Default.prototype as any)._getIconUrl
+        L.Icon.Default.mergeOptions({ iconRetinaUrl: "", iconUrl: "", shadowUrl: "" })
 
-    ctx.fillStyle = isDark ? '#0a0a0f' : '#f0f4ff'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
 
-    // Draw grid
-    ctx.strokeStyle = isDark ? 'rgba(99,102,241,0.05)' : 'rgba(99,102,241,0.08)'
-    ctx.lineWidth = 1
-    for (let x = 0; x < canvas.width; x += 40) {
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke()
-    }
-    for (let y = 0; y < canvas.height; y += 40) {
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke()
-    }
+        const map = L.map(mapRef.current!, {
+          center: [20, 0],
+          zoom: 2,
+          zoomControl: true,
+          attributionControl: false,
+          minZoom: 2,
+          maxZoom: 8
+        })
+        mapInstanceRef.current = map
 
-    // Position nodes in a circle
-    const cx = canvas.width / 2
-    const cy = canvas.height / 2
-    const radius = Math.min(canvas.width, canvas.height) * 0.32
-    const filtered = nodes.filter(n => syncLayer === 'all' || n.syncLayer === syncLayer)
-    const positions: Record<string, {x: number, y: number}> = {}
+        const tileUrl = isDark
+          ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        L.tileLayer(tileUrl, { subdomains: "abcd", maxZoom: 20 }).addTo(map)
 
-    filtered.forEach((node, i) => {
-      const angle = (i / filtered.length) * Math.PI * 2 - Math.PI / 2
-      positions[node.id] = {
-        x: cx + Math.cos(angle) * (node.isCurrentNode ? 0 : radius),
-        y: cy + Math.sin(angle) * (node.isCurrentNode ? 0 : radius)
+        const filtered = nodes.filter(n => filter === "all" || n.syncLayer === filter)
+
+        // Draw connections
+        connections
+          .filter(c => filter === "all" || c.layer === filter)
+          .forEach(conn => {
+            const from = filtered.find(n => n.id === conn.from)
+            const to = filtered.find(n => n.id === conn.to)
+            if (!from || !to) return
+            const color = LAYER_COLORS[conn.layer]
+            L.polyline(
+              [[from.lat, from.lng], [to.lat, to.lng]],
+              {
+                color,
+                weight: conn.active ? 2 : 1,
+                opacity: conn.active ? 0.7 : 0.3,
+                dashArray: conn.active ? undefined : "6 6"
+              }
+            ).addTo(map)
+          })
+
+        // Draw nodes
+        filtered.forEach(node => {
+          const color = node.isCurrentNode ? "#ffffff" : LAYER_COLORS[node.syncLayer]
+          const size = node.isCurrentNode ? 16 : 10 + Math.min(node.chunkCount / 3, 8)
+
+          const icon = L.divIcon({
+            className: "",
+            html: `<div style="position:relative;width:${size * 3}px;height:${size * 3}px;display:flex;align-items:center;justify-content:center;">
+              <div style="position:absolute;width:${size * 2.5}px;height:${size * 2.5}px;border-radius:50%;background:radial-gradient(circle,${color}30 0%,transparent 70%);animation:pulse 2s infinite;"></div>
+              <div style="width:${size}px;height:${size}px;border-radius:50%;background:${color};border:${node.isCurrentNode ? "2px solid " + LAYER_COLORS[node.syncLayer] : "none"};box-shadow:0 0 ${size}px ${color}80;"></div>
+            </div>`,
+            iconSize: [size * 3, size * 3],
+            iconAnchor: [size * 1.5, size * 1.5],
+          })
+
+          const marker = L.marker([node.lat, node.lng], { icon })
+          marker.bindPopup(
+            `<div style="background:#1a1a2e;color:#e2e8f0;padding:10px;border-radius:8px;font-family:monospace;min-width:160px;">
+              <div style="color:${color};font-weight:bold;margin-bottom:6px;">${node.isCurrentNode ? "This Node" : "Anonymous Node"}</div>
+              <div style="font-size:11px;color:#94a3b8;">Layer: ${node.syncLayer.toUpperCase()}</div>
+              <div style="font-size:11px;color:#94a3b8;">Knowledge: ${node.chunkCount} chunks</div>
+              <div style="font-size:11px;color:#64748b;margin-top:4px;">No identity. No IP. Private.</div>
+            </div>`,
+            { className: "superbrain-popup", closeButton: false }
+          )
+          marker.addTo(map)
+        })
+      } catch (err) {
+        console.error("Map init error:", err)
       }
-    })
+    }
 
-    // Draw connections
-    connections.filter(c => syncLayer === 'all' || c.layer === syncLayer).forEach(conn => {
-      const from = positions[conn.from]
-      const to = positions[conn.to]
-      if (!from || !to) return
-      ctx.beginPath()
-      ctx.moveTo(from.x, from.y)
-      ctx.lineTo(to.x, to.y)
-      const colors = { lan: '#6366f1', i2p: '#10b981', testnet: '#f59e0b' }
-      ctx.strokeStyle = conn.active
-        ? colors[conn.layer] + 'cc'
-        : colors[conn.layer] + '33'
-      ctx.lineWidth = conn.active ? 2 : 1
-      ctx.setLineDash(conn.active ? [] : [5, 5])
-      ctx.stroke()
-      ctx.setLineDash([])
-    })
+    initMap()
 
-    // Draw nodes
-    filtered.forEach(node => {
-      const pos = positions[node.id]
-      if (!pos) return
-      const colors = { lan: '#6366f1', i2p: '#10b981', testnet: '#f59e0b' }
-      const color = colors[node.syncLayer]
-      const size = node.isCurrentNode ? 20 : 12 + Math.min(node.chunkCount / 2, 8)
-
-      // Glow
-      const glow = ctx.createRadialGradient(pos.x, pos.y, 0, pos.x, pos.y, size * 2.5)
-      glow.addColorStop(0, color + '40')
-      glow.addColorStop(1, 'transparent')
-      ctx.fillStyle = glow
-      ctx.beginPath()
-      ctx.arc(pos.x, pos.y, size * 2.5, 0, Math.PI * 2)
-      ctx.fill()
-
-      // Node dot
-      ctx.fillStyle = node.isCurrentNode ? '#ffffff' : color
-      ctx.beginPath()
-      ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2)
-      ctx.fill()
-
-      if (node.isCurrentNode) {
-        ctx.strokeStyle = color
-        ctx.lineWidth = 3
-        ctx.stroke()
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
       }
-
-      // Label
-      ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b'
-      ctx.font = '11px monospace'
-      ctx.textAlign = 'center'
-      ctx.fillText(node.nodeId.slice(0, 16) + '...', pos.x, pos.y + size + 16)
-      ctx.fillText(node.chunkCount + ' chunks', pos.x, pos.y + size + 28)
-    })
-
-  }, [nodes, connections, isDark, syncLayer])
-
-  const layerColors = { lan: 'text-indigo-400', i2p: 'text-emerald-400', testnet: 'text-amber-400' }
-  const layerLabels = { lan: 'LAN', i2p: 'I2P', testnet: 'Testnet' }
+    }
+  }, [nodes, connections, filter, isDark])
 
   return (
     <DashboardLayout>
-      <div className={'h-full flex flex-col ' + (isDark ? 'bg-gray-950 text-white' : 'bg-gray-50 text-gray-900')}>
-        
+      <div className={`h-full flex flex-col ${isDark ? "bg-gray-950 text-white" : "bg-gray-50 text-gray-900"}`}>
         {/* Header */}
-        <div className={'flex items-center justify-between px-6 py-4 border-b ' + (isDark ? 'border-gray-800' : 'border-gray-200')}>
+        <div className={`flex items-center justify-between px-6 py-4 border-b ${isDark ? "border-gray-800" : "border-gray-200"}`}>
           <div className="flex items-center gap-3">
             <Globe className="w-5 h-5 text-indigo-400" />
             <h1 className="font-semibold text-lg">Network Map</h1>
-            <span className={'text-xs px-2 py-0.5 rounded-full ' + (isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-200 text-gray-600')}>
-              Private — node IDs only
+            <span className={`text-xs px-2 py-0.5 rounded-full ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-200 text-gray-600"}`}>
+              Zero identity — cryptographic only
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            {(['all', 'lan', 'i2p', 'testnet'] as const).map(layer => (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setPrivacyMode(!privacyMode)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border transition-all ${
+                privacyMode
+                  ? "border-emerald-500 bg-emerald-500/20 text-emerald-300"
+                  : "border-gray-600 text-gray-400"
+              }`}
+            >
+              {privacyMode ? <Shield className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+              {privacyMode ? "Private" : "Visible"}
+            </button>
+            {(["all", "lan", "i2p", "testnet"] as const).map(layer => (
               <button
                 key={layer}
-                onClick={() => setSyncLayer(layer)}
-                className={'text-xs px-3 py-1 rounded-full border transition-all ' + (
-                  syncLayer === layer
-                    ? 'border-indigo-500 bg-indigo-500/20 text-indigo-300'
-                    : isDark ? 'border-gray-700 text-gray-500 hover:border-gray-500' : 'border-gray-300 text-gray-500'
-                )}
+                onClick={() => setFilter(layer)}
+                className={`text-xs px-3 py-1 rounded-full border transition-all ${
+                  filter === layer
+                    ? "border-indigo-500 bg-indigo-500/20 text-indigo-300"
+                    : isDark
+                      ? "border-gray-700 text-gray-500"
+                      : "border-gray-300 text-gray-500"
+                }`}
               >
-                {layer === 'all' ? 'All' : layerLabels[layer]}
+                {layer === "all" ? "All Layers" : layer.toUpperCase()}
               </button>
             ))}
           </div>
         </div>
 
         {/* Stats */}
-        <div className={'flex gap-6 px-6 py-3 border-b ' + (isDark ? 'border-gray-800 bg-gray-900/50' : 'border-gray-200 bg-white/50')}>
+        <div className={`flex gap-8 px-6 py-3 border-b ${isDark ? "border-gray-800 bg-gray-900/50" : "border-gray-200 bg-white/50"}`}>
           {[
-            { icon: Wifi, label: 'Nodes', value: stats.totalNodes, color: 'text-indigo-400' },
-            { icon: Activity, label: 'Knowledge Chunks', value: stats.totalChunks, color: 'text-emerald-400' },
-            { icon: Shield, label: 'Active Connections', value: stats.activeConnections, color: 'text-amber-400' },
+            { icon: Wifi, label: "Nodes", value: stats.nodes, color: "text-indigo-400" },
+            { icon: Activity, label: "Knowledge Chunks", value: stats.chunks, color: "text-emerald-400" },
+            { icon: Shield, label: "Active Connections", value: stats.connections, color: "text-amber-400" },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex items-center gap-2">
-              <Icon className={'w-4 h-4 ' + color} />
-              <span className={'text-xs ' + (isDark ? 'text-gray-400' : 'text-gray-500')}>{label}:</span>
+              <Icon className={`w-4 h-4 ${color}`} />
+              <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{label}:</span>
               <span className="text-sm font-mono font-bold">{value}</span>
             </div>
           ))}
-          <div className="ml-auto flex items-center gap-4 text-xs">
-            <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-indigo-400 inline-block"/>LAN</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-emerald-400 inline-block"/>I2P</span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-0.5 bg-amber-400 inline-block"/>Testnet</span>
+          <div className="ml-auto flex items-center gap-5 text-xs">
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 bg-indigo-400 inline-block rounded" />LAN
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 bg-emerald-400 inline-block rounded" />I2P
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-0.5 bg-amber-400 inline-block rounded" />Testnet
+            </span>
           </div>
         </div>
 
-        {/* Canvas */}
+        {/* Map */}
         <div className="flex-1 relative">
-          <canvas ref={canvasRef} className="w-full h-full" />
-          <div className={'absolute bottom-4 left-4 text-xs font-mono ' + (isDark ? 'text-gray-600' : 'text-gray-400')}>
-            <div>● You are the white node</div>
-            <div>● All identities are cryptographic only</div>
-            <div>● Phase 2: SN65 transport routing</div>
+          <style>{`
+            .leaflet-container { background: ${isDark ? "#0a0a1a" : "#e8f4f8"} !important; }
+            .leaflet-popup-content-wrapper { background: transparent !important; border: none !important; box-shadow: none !important; padding: 0 !important; }
+            .leaflet-popup-tip { display: none !important; }
+            @keyframes pulse {
+              0% { transform: scale(0.8); opacity: 0.8; }
+              50% { transform: scale(1.2); opacity: 0.4; }
+              100% { transform: scale(0.8); opacity: 0.8; }
+            }
+          `}</style>
+          <div ref={mapRef} className="w-full h-full" style={{ zIndex: 1 }} />
+
+          {/* Bottom-left info */}
+          <div className={`absolute bottom-4 left-4 text-xs font-mono ${isDark ? "text-gray-600" : "text-gray-400"} space-y-1`}>
+            <div className="flex items-center gap-1.5">
+              <Shield className="w-3 h-3 text-emerald-500" />
+              <span>Positions are approximate regions only</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <EyeOff className="w-3 h-3 text-indigo-400" />
+              <span>No IPs, no identities, no tracking</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Wifi className="w-3 h-3 text-amber-400" />
+              <span>Phase 2: SN65 transport routing</span>
+            </div>
+          </div>
+
+          {/* Top-right live indicator */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Live Network</span>
           </div>
         </div>
       </div>
