@@ -34,7 +34,7 @@ function formatDate(dateStr: string): string {
 }
 
 const History = () => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const navigate = useNavigate()
   const { conversations, deleteConversation, clearAll } = useChatHistory()
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -86,7 +86,7 @@ const History = () => {
     }
   }
 
-  const isDark = theme === 'dark'
+  const isDark = resolvedTheme === 'dark'
 
   return (
     <DashboardLayout>

@@ -27,8 +27,8 @@ interface ShareHistoryProps {
 }
 
 const ShareHistory: React.FC<ShareHistoryProps> = ({ history: externalHistory, onClear }) => {
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { theme, resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
 
   // Use external history if provided, otherwise load from localStorage directly
   const [localHistory, setLocalHistory] = useState<ShareHistoryEntry[]>([])

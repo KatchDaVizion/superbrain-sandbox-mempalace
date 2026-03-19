@@ -10,7 +10,7 @@ export const TopNavigation = ({
   sidebarCollapsed,
   onSidebarToggle,
 }: TopNavigationProps) => {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
 
   const handleRefresh = () => {
     window.location.reload();
@@ -43,11 +43,11 @@ export const TopNavigation = ({
       {/* Right Section: Theme Toggle + Refresh */}
       <div className="flex items-center space-x-3">
         <button
-          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
           className="p-2 rounded-lg hover:bg-muted transition-colors"
           title="Toggle theme"
         >
-          {theme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
+          {resolvedTheme === "dark" ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
         <button

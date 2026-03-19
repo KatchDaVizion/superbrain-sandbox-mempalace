@@ -69,7 +69,7 @@ function getMockConnections(): Connection[] {
 }
 
 export default function NodeMap() {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const [nodes, setNodes] = useState<NetworkNode[]>([])
@@ -77,7 +77,7 @@ export default function NodeMap() {
   const [filter, setFilter] = useState<"all" | "lan" | "i2p" | "testnet">("all")
   const [privacyMode, setPrivacyMode] = useState(true)
   const [stats, setStats] = useState({ nodes: 0, chunks: 0, connections: 0 })
-  const isDark = theme === "dark"
+  const isDark = resolvedTheme === "dark"
 
   useEffect(() => {
     const n = getMockNodes()

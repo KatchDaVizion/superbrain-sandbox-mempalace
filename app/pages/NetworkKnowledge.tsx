@@ -5,7 +5,7 @@ import DashboardLayout from '../components/shared/DashboardLayout'
 import { useNetworkRAG } from '../hooks/useNetworkRAG'
 
 const NetworkKnowledge: React.FC = () => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const {
     stats,
     isLoading,
@@ -40,7 +40,7 @@ const NetworkKnowledge: React.FC = () => {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+          <div className={`p-2 rounded-lg ${resolvedTheme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
             <Globe className="h-6 w-6 text-blue-600" />
           </div>
           <div>
@@ -53,7 +53,7 @@ const NetworkKnowledge: React.FC = () => {
         <button
           onClick={refreshStats}
           className={`p-2 rounded-lg border transition-colors ${
-            theme === 'dark'
+            resolvedTheme === 'dark'
               ? 'border-gray-600 hover:border-blue-400 hover:bg-blue-500/10'
               : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50'
           }`}
@@ -67,7 +67,7 @@ const NetworkKnowledge: React.FC = () => {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div
             className={`p-4 rounded-xl border ${
-              theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+              resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -78,7 +78,7 @@ const NetworkKnowledge: React.FC = () => {
           </div>
           <div
             className={`p-4 rounded-xl border ${
-              theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+              resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -89,7 +89,7 @@ const NetworkKnowledge: React.FC = () => {
           </div>
           <div
             className={`p-4 rounded-xl border ${
-              theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+              resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -100,7 +100,7 @@ const NetworkKnowledge: React.FC = () => {
           </div>
           <div
             className={`p-4 rounded-xl border ${
-              theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+              resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
             }`}
           >
             <div className="flex items-center gap-2 mb-1">
@@ -123,7 +123,7 @@ const NetworkKnowledge: React.FC = () => {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Ask the network anything..."
               className={`w-full pl-10 pr-4 py-3 rounded-xl border transition-colors ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-card/50 border-border text-foreground placeholder-muted-foreground focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 shadow-sm'
               } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
@@ -133,7 +133,7 @@ const NetworkKnowledge: React.FC = () => {
           {/* Mode Toggle */}
           <div
             className={`flex items-center rounded-xl border overflow-hidden ${
-              theme === 'dark' ? 'border-border' : 'border-gray-300'
+              resolvedTheme === 'dark' ? 'border-border' : 'border-gray-300'
             }`}
           >
             <button
@@ -142,7 +142,7 @@ const NetworkKnowledge: React.FC = () => {
               className={`px-3 py-3 text-sm font-medium transition-colors ${
                 mode === 'answer'
                   ? 'bg-blue-600 text-white'
-                  : theme === 'dark'
+                  : resolvedTheme === 'dark'
                     ? 'bg-card/50 text-muted-foreground hover:bg-muted'
                     : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
@@ -155,7 +155,7 @@ const NetworkKnowledge: React.FC = () => {
               className={`px-3 py-3 text-sm font-medium transition-colors ${
                 mode === 'search'
                   ? 'bg-blue-600 text-white'
-                  : theme === 'dark'
+                  : resolvedTheme === 'dark'
                     ? 'bg-card/50 text-muted-foreground hover:bg-muted'
                     : 'bg-white text-gray-600 hover:bg-gray-50'
               }`}
@@ -188,7 +188,7 @@ const NetworkKnowledge: React.FC = () => {
       {error && (
         <div
           className={`p-4 rounded-xl border mb-4 ${
-            theme === 'dark' ? 'bg-red-950/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
+            resolvedTheme === 'dark' ? 'bg-red-950/20 border-red-800 text-red-300' : 'bg-red-50 border-red-200 text-red-800'
           }`}
         >
           {error}
@@ -199,7 +199,7 @@ const NetworkKnowledge: React.FC = () => {
       {answer && (
         <div
           className={`p-6 rounded-xl border mb-4 ${
-            theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+            resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
           }`}
         >
           <div className="flex items-center gap-2 mb-3">
@@ -220,7 +220,7 @@ const NetworkKnowledge: React.FC = () => {
                   <div
                     key={i}
                     className={`p-3 rounded-lg text-xs ${
-                      theme === 'dark' ? 'bg-muted/50' : 'bg-gray-50'
+                      resolvedTheme === 'dark' ? 'bg-muted/50' : 'bg-gray-50'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
@@ -248,7 +248,7 @@ const NetworkKnowledge: React.FC = () => {
             <div
               key={i}
               className={`p-4 rounded-xl border ${
-                theme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+                resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
               }`}
             >
               <div className="flex items-center justify-between mb-2">
@@ -269,7 +269,7 @@ const NetworkKnowledge: React.FC = () => {
       {!isLoading && !answer && searchResults.length === 0 && !error && (
         <div className="text-center py-16">
           <Globe
-            className={`w-16 h-16 mx-auto mb-4 ${theme === 'dark' ? 'text-muted-foreground/30' : 'text-gray-300'}`}
+            className={`w-16 h-16 mx-auto mb-4 ${resolvedTheme === 'dark' ? 'text-muted-foreground/30' : 'text-gray-300'}`}
           />
           <h3 className="text-lg font-medium mb-2">Search the Knowledge Network</h3>
           <p className="text-sm text-muted-foreground max-w-md mx-auto">

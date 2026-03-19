@@ -15,14 +15,14 @@ interface SourcesPanelProps {
 
 const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
   const [isExpanded, setIsExpanded] = useState(false)
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
 
   if (!sources || sources.length === 0) return null
 
   const getScoreColor = (score: number): string => {
-    if (score >= 0.8) return theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
-    if (score >= 0.5) return theme === 'dark' ? 'text-amber-400' : 'text-amber-600'
-    return theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+    if (score >= 0.8) return resolvedTheme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+    if (score >= 0.5) return resolvedTheme === 'dark' ? 'text-amber-400' : 'text-amber-600'
+    return resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'
   }
 
   const getScoreLabel = (score: number): string => {
@@ -43,7 +43,7 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
 
   return (
     <div className={`mt-2 rounded-lg border transition-colors ${
-      theme === 'dark'
+      resolvedTheme === 'dark'
         ? 'bg-slate-800/40 border-slate-700/50'
         : 'bg-slate-50 border-slate-200'
     }`}>
@@ -51,7 +51,7 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
       <button
         onClick={() => setIsExpanded(!isExpanded)}
         className={`w-full flex items-center justify-between px-3 py-2 text-xs font-medium transition-colors rounded-lg ${
-          theme === 'dark'
+          resolvedTheme === 'dark'
             ? 'text-blue-300 hover:bg-slate-700/50'
             : 'text-blue-600 hover:bg-slate-100'
         }`}
@@ -74,7 +74,7 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
             <div
               key={idx}
               className={`p-2.5 rounded-md border text-xs ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-slate-900/50 border-slate-700/30'
                   : 'bg-white border-slate-200/80'
               }`}
@@ -83,12 +83,12 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center space-x-2 min-w-0 flex-1">
                   <span className={`font-mono font-bold ${
-                    theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+                    resolvedTheme === 'dark' ? 'text-blue-400' : 'text-blue-600'
                   }`}>
                     [{idx + 1}]
                   </span>
                   <span className={`truncate font-medium ${
-                    theme === 'dark' ? 'text-slate-200' : 'text-slate-700'
+                    resolvedTheme === 'dark' ? 'text-slate-200' : 'text-slate-700'
                   }`}>
                     {getSourceName(source)}
                   </span>
@@ -101,7 +101,7 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
 
               {/* Source preview */}
               <p className={`line-clamp-2 leading-relaxed ${
-                theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'
               }`}>
                 {source.content}
               </p>
@@ -110,10 +110,10 @@ const SourcesPanel: React.FC<SourcesPanelProps> = ({ sources }) => {
               {source.metadata?.url && (
                 <div className="mt-1.5 flex items-center space-x-1">
                   <ExternalLink className={`w-3 h-3 ${
-                    theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+                    resolvedTheme === 'dark' ? 'text-slate-500' : 'text-slate-400'
                   }`} />
                   <span className={`truncate ${
-                    theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+                    resolvedTheme === 'dark' ? 'text-slate-500' : 'text-slate-400'
                   }`}>
                     {source.metadata.url}
                   </span>

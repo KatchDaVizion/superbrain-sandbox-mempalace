@@ -24,7 +24,7 @@ import LocalModelsLoader from '../components/model/LocalModelsLoader'
 
 const Models: React.FC = () => {
   const navigate = useNavigate()
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
 
   const {
     localModels,
@@ -257,21 +257,21 @@ const Models: React.FC = () => {
         )}
 
         {/* Page Title */}
-        <h1 className={`text-3xl font-bold mb-4 ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+        <h1 className={`text-3xl font-bold mb-4 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
           Local AI Models (Ollama)
         </h1>
 
         {/* Download New Models Card */}
         <div
           className={`flex flex-col md:flex-row items-start md:items-center justify-between border rounded-lg p-4 mb-6 shadow-sm transition-colors w-full ${
-            theme === 'dark' ? 'bg-gray-800 border-blue-500/20' : 'bg-white border-blue-200'
+            resolvedTheme === 'dark' ? 'bg-gray-800 border-blue-500/20' : 'bg-white border-blue-200'
           }`}
         >
           <div className="flex-1 mb-3 md:mb-0">
-            <h3 className={`text-lg font-semibold mb-1 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
+            <h3 className={`text-lg font-semibold mb-1 ${resolvedTheme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`}>
               Download New Models
             </h3>
-            <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
               Add more AI models to your local collection
             </p>
           </div>
@@ -279,7 +279,7 @@ const Models: React.FC = () => {
             <button
               onClick={handleBrowseClick}
               className={`flex items-center space-x-2 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm ${
-                theme === 'dark' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
+                resolvedTheme === 'dark' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-600 hover:bg-blue-700'
               }`}
             >
               <Plus size={16} />
@@ -290,7 +290,7 @@ const Models: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
               className={`flex items-center space-x-2 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm ${
-                theme === 'dark' ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-600 hover:bg-gray-700'
+                resolvedTheme === 'dark' ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-600 hover:bg-gray-700'
               }`}
             >
               <ExternalLink size={16} />
@@ -325,10 +325,10 @@ const Models: React.FC = () => {
         />
         {/* Downloaded Models Header */}
         <div className="mb-4">
-          <h2 className={`text-2xl font-semibold ${theme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
+          <h2 className={`text-2xl font-semibold ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>
             Installed Models
           </h2>
-          <p className={`text-sm mt-1 ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
+          <p className={`text-sm mt-1 ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
             {localModels.length === 0
               ? 'No models installed yet. Browse and download models to get started.'
               : `${localModels.length} model${localModels.length === 1 ? '' : 's'} installed`}

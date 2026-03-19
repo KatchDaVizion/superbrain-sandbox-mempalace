@@ -27,7 +27,7 @@ type ChatHistoryProps = {
 }
 
 const ChatHistory: React.FC<ChatHistoryProps> = ({ selectedModel, selectedCollection, chatType = 'ollama' }) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const manager = chatType === 'rag' ? useRagChatManager(selectedCollection!) : useChatManager(selectedModel!)
   const { threads, currentThread, selectThread, deleteThread } = manager

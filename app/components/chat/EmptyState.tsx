@@ -10,7 +10,7 @@ interface EmptyStateProps {
 }
 
 const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected = false }: EmptyStateProps) => {
-  const { theme } = useTheme();
+  const { theme, resolvedTheme } = useTheme();
 
   const features = [
     {
@@ -57,12 +57,12 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
         {/* Welcome Text */}
         <div className="space-y-3">
           <h2 className={`text-3xl font-bold ${
-            theme === 'dark' ? 'text-white' : 'text-slate-900'
+            resolvedTheme === 'dark' ? 'text-white' : 'text-slate-900'
           }`}>
             Welcome to {selectedModel || 'SuperBrain AI'}
           </h2>
           <p className={`leading-relaxed ${
-            theme === 'dark' ? 'text-slate-400' : 'text-slate-600'
+            resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-600'
           }`}>
             {getSubtitle()}
           </p>
@@ -72,10 +72,10 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
         {qdrantConnected && (
           <div className={`inline-flex items-center space-x-2 px-4 py-2 rounded-full text-xs font-medium ${
             docCount > 0
-              ? theme === 'dark'
+              ? resolvedTheme === 'dark'
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-              : theme === 'dark'
+              : resolvedTheme === 'dark'
                 ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
                 : 'bg-amber-50 text-amber-600 border border-amber-200'
           }`}>
@@ -97,7 +97,7 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
         <div className="flex items-center justify-center gap-6">
           {features.map((feature, index) => (
             <div key={index} className={`flex flex-col items-center text-center p-4 rounded-xl transition-colors min-w-0 flex-1 ${
-              theme === 'dark'
+              resolvedTheme === 'dark'
                 ? 'bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/30'
                 : 'bg-slate-50 hover:bg-slate-100 border border-slate-200/50'
             }`}>
@@ -108,12 +108,12 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
               </div>
               <div>
                 <h4 className={`text-sm font-semibold mb-1 ${
-                  theme === 'dark' ? 'text-slate-200' : 'text-slate-700'
+                  resolvedTheme === 'dark' ? 'text-slate-200' : 'text-slate-700'
                 }`}>
                   {feature.title}
                 </h4>
                 <p className={`text-xs ${
-                  theme === 'dark' ? 'text-slate-400' : 'text-slate-500'
+                  resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'
                 }`}>
                   {feature.description}
                 </p>
@@ -134,7 +134,7 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
             </button>
           ) : (
             <div className={`w-full px-6 py-4 rounded-xl font-medium text-center border ${
-              theme === 'dark'
+              resolvedTheme === 'dark'
                 ? 'bg-slate-800/50 text-slate-400 border-slate-600/30'
                 : 'bg-slate-100 text-slate-600 border-slate-300/30'
             }`}>
@@ -146,7 +146,7 @@ const EmptyState = ({ selectedModel, onStartChat, docCount = 0, qdrantConnected 
           )}
 
           <p className={`text-xs ${
-            theme === 'dark' ? 'text-slate-500' : 'text-slate-400'
+            resolvedTheme === 'dark' ? 'text-slate-500' : 'text-slate-400'
           }`}>
             Ready to chat? {selectedModel ? 'Click the button above to begin your secure conversation.' : 'Select a model to get started.'}
           </p>

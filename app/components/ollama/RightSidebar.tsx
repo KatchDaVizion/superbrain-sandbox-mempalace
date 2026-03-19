@@ -21,7 +21,7 @@ interface RightSidebarProps {
 }
 
 const RightSidebar = ({ selectedModelData, getCurrentCreativityLevel }: RightSidebarProps) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const styles = getRightSidebarTheme(theme || 'light')
   const { creativity, setCreativity } = useRagOllama() as any
   return (
@@ -29,12 +29,12 @@ const RightSidebar = ({ selectedModelData, getCurrentCreativityLevel }: RightSid
       {/* Creativity Control */}
       <div
         className={`backdrop-blur rounded-2xl border p-5 ${
-          theme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
+          resolvedTheme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
         }`}
       >
         <h3
           className={`text-lg font-semibold mb-4 flex items-center ${
-            theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
+            resolvedTheme === 'dark' ? 'text-purple-300' : 'text-purple-700'
           }`}
         >
           <Sparkles className="w-5 h-5 mr-2" />
@@ -43,7 +43,7 @@ const RightSidebar = ({ selectedModelData, getCurrentCreativityLevel }: RightSid
         <div className="space-y-4">
           <div
             className={`flex items-center justify-between text-xs ${
-              theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'
+              resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'
             }`}
           >
             <span>Logical</span>
@@ -52,11 +52,11 @@ const RightSidebar = ({ selectedModelData, getCurrentCreativityLevel }: RightSid
           <div className="px-1">
             <Slider value={creativity} onValueChange={setCreativity} max={1} min={0} step={0.1} className="w-full" />
           </div>
-          <div className={`text-center p-3 rounded-lg ${theme === 'dark' ? 'bg-muted/30' : 'bg-gray-50'}`}>
-            <div className={`text-sm font-semibold mb-1 ${theme === 'dark' ? 'text-purple-300' : 'text-purple-700'}`}>
+          <div className={`text-center p-3 rounded-lg ${resolvedTheme === 'dark' ? 'bg-muted/30' : 'bg-gray-50'}`}>
+            <div className={`text-sm font-semibold mb-1 ${resolvedTheme === 'dark' ? 'text-purple-300' : 'text-purple-700'}`}>
               {getCurrentCreativityLevel().label} Mode
             </div>
-            <div className={`text-xs ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
+            <div className={`text-xs ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
               {getCurrentCreativityLevel().desc}
             </div>
           </div>

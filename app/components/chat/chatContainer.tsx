@@ -107,7 +107,7 @@ const ChatContainer = ({
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const newChatButtonTheme = getButtonTheme(theme || 'light', 'primary')
   const isInputDisabled = isLoading || !selectedModel || isLoadingThread
 
@@ -155,7 +155,7 @@ const ChatContainer = ({
       {showHistory && (
         <div
           className={`rounded-2xl p-4 overflow-y-auto transition-all duration-300 ${
-            theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+            resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
           }`}
         >
           <ChatHistory
@@ -175,7 +175,7 @@ const ChatContainer = ({
               <Shield className="w-5 h-5 text-emerald-400" />
             </div>
             <div>
-              <h3 className={`text-lg font-semibold ${theme === 'dark' ? 'text-green-300' : 'text-green-500'}`}>
+              <h3 className={`text-lg font-semibold ${resolvedTheme === 'dark' ? 'text-green-300' : 'text-green-500'}`}>
                 {chatType === 'network' ? 'Network Search' : 'Private Chat'}
               </h3>
               <p className="text-xs text-slate-400 truncate max-w-48">{selectedModel || 'No model selected'}</p>
@@ -192,10 +192,10 @@ const ChatContainer = ({
                     onClick={onToggleVoice}
                     className={`p-1.5 rounded-lg transition-colors text-xs ${
                       voiceEnabled
-                        ? theme === 'dark'
+                        ? resolvedTheme === 'dark'
                           ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30'
                           : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'
-                        : theme === 'dark'
+                        : resolvedTheme === 'dark'
                           ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                     }`}
@@ -211,10 +211,10 @@ const ChatContainer = ({
                     onClick={onToggleHandsFree}
                     className={`p-1.5 rounded-lg transition-colors text-xs ${
                       handsFreeMode
-                        ? theme === 'dark'
+                        ? resolvedTheme === 'dark'
                           ? 'bg-green-500/20 text-green-300 hover:bg-green-500/30'
                           : 'bg-green-50 text-green-600 hover:bg-green-100'
-                        : theme === 'dark'
+                        : resolvedTheme === 'dark'
                           ? 'bg-slate-800/50 text-slate-400 hover:bg-slate-700/50'
                           : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                     }`}
@@ -229,7 +229,7 @@ const ChatContainer = ({
                   <button
                     onClick={onStopSpeaking}
                     className={`p-1.5 rounded-lg transition-colors ${
-                      theme === 'dark'
+                      resolvedTheme === 'dark'
                         ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30'
                         : 'bg-red-50 text-red-600 hover:bg-red-100'
                     }`}
@@ -247,10 +247,10 @@ const ChatContainer = ({
                 onClick={() => onToggleRAG && onToggleRAG(!useRAG)}
                 className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-full border transition-colors text-xs font-medium ${
                   useRAG
-                    ? theme === 'dark'
+                    ? resolvedTheme === 'dark'
                       ? 'bg-blue-500/10 border-blue-500/30 text-blue-300 hover:bg-blue-500/20'
                       : 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
-                    : theme === 'dark'
+                    : resolvedTheme === 'dark'
                       ? 'bg-slate-800/50 border-slate-600/30 text-slate-400 hover:bg-slate-700/50'
                       : 'bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200'
                 }`}
@@ -260,7 +260,7 @@ const ChatContainer = ({
                 <span>KB {useRAG ? 'On' : 'Off'}</span>
                 {useRAG && docCount > 0 && (
                   <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
-                    theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
+                    resolvedTheme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'
                   }`}>
                     {docCount}
                   </span>
@@ -272,7 +272,7 @@ const ChatContainer = ({
             {chatType === 'network' ? (
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-blue-500/10 border border-blue-500/20 rounded-full">
                 <Globe className="w-3 h-3 text-blue-400" />
-                <span className={`text-xs font-medium ${theme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`}>
+                <span className={`text-xs font-medium ${resolvedTheme === 'dark' ? 'text-blue-300' : 'text-blue-500'}`}>
                   {networkSourceCount > 0
                     ? `Sourced from ${networkSourceCount} network contributor${networkSourceCount !== 1 ? 's' : ''}`
                     : 'Network Pool'}
@@ -281,7 +281,7 @@ const ChatContainer = ({
             ) : (
               <div className="flex items-center space-x-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
                 <Circle className="w-2 h-2 fill-emerald-400 text-emerald-400 animate-pulse" />
-                <span className={`text-xs font-medium ${theme === 'dark' ? 'text-emerald-300' : 'text-emerald-500'}`}>
+                <span className={`text-xs font-medium ${resolvedTheme === 'dark' ? 'text-emerald-300' : 'text-emerald-500'}`}>
                   Offline
                 </span>
               </div>
@@ -319,10 +319,10 @@ const ChatContainer = ({
         {handsFreeMode && (
           <div className="mb-3 px-4 py-2 rounded-lg bg-green-500/10 border border-green-500/20 flex items-center space-x-2 animate-pulse">
             <Headphones className="w-4 h-4 text-green-400" />
-            <span className={`text-xs font-medium ${theme === 'dark' ? 'text-green-300' : 'text-green-600'}`}>
+            <span className={`text-xs font-medium ${resolvedTheme === 'dark' ? 'text-green-300' : 'text-green-600'}`}>
               Hands-Free Active — {isListening ? 'listening...' : isReading ? 'speaking...' : 'waiting...'}
             </span>
-            <span className={`text-xs ${theme === 'dark' ? 'text-green-400/60' : 'text-green-500/60'}`}>
+            <span className={`text-xs ${resolvedTheme === 'dark' ? 'text-green-400/60' : 'text-green-500/60'}`}>
               (press Escape to exit)
             </span>
           </div>

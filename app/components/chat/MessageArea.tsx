@@ -29,7 +29,7 @@ const mathJaxConfig = {
 }
 
 const MessageArea = ({ chatMessages, isLoading }: MessageAreaProps) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const [expandedThinking, setExpandedThinking] = useState<{ [key: string]: boolean }>({})
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
@@ -49,7 +49,7 @@ const MessageArea = ({ chatMessages, isLoading }: MessageAreaProps) => {
     <div className="h-full flex flex-col">
       <div
         className={`flex-1 ${
-          theme === 'dark' ? 'bg-slate-900/30' : 'bg-slate-100'
+          resolvedTheme === 'dark' ? 'bg-slate-900/30' : 'bg-slate-100'
         } max-h-[600px] rounded-lg border border-slate-700/30 overflow-y-auto scrollbar-thin scrollbar-track-slate-800 scrollbar-thumb-slate-600 hover:scrollbar-thumb-slate-500`}
         style={{ overflowY: 'auto' }}
       >
@@ -83,7 +83,7 @@ const MessageArea = ({ chatMessages, isLoading }: MessageAreaProps) => {
                           {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
                             <div className="flex items-center space-x-1 px-2 py-0.5 bg-blue-500/20 rounded-full">
                               <span className={`text-xs font-medium ${
-                                theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+                                resolvedTheme === 'dark' ? 'text-blue-400' : 'text-blue-600'
                               }`}>
                                 KB-enhanced
                               </span>

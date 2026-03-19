@@ -2,13 +2,13 @@ import { Brain } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 const LoadingIndicator = () => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
 
   return (
     <div className="flex justify-start">
       <div
         className={`rounded-2xl px-4 py-3 shadow-sm max-w-[85%] border ${
-          theme === 'dark' ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-100/80 border-slate-300/50'
+          resolvedTheme === 'dark' ? 'bg-slate-800/60 border-slate-700/50' : 'bg-slate-100/80 border-slate-300/50'
         }`}
       >
         <div className="flex items-center space-x-3">
@@ -17,7 +17,7 @@ const LoadingIndicator = () => {
             <div className="absolute -top-1 -right-1 w-2 h-2 bg-purple-400 rounded-full animate-ping"></div>
           </div>
           <div className="flex flex-col">
-            <span className={`text-sm font-medium ${theme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
+            <span className={`text-sm font-medium ${resolvedTheme === 'dark' ? 'text-slate-300' : 'text-slate-700'}`}>
               Thinking...
             </span>
             <span className="text-xs text-purple-400">Processing your request</span>

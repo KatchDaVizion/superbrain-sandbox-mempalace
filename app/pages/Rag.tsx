@@ -26,7 +26,7 @@ type AvailableModel = {
 const Rag: React.FC = () => {
   const location = useLocation()
   const passedModel = (location.state as any)?.model
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const [modelSearchQuery, setModelSearchQuery] = useState('')
   const [collectionSearchQuery, setCollectionSearchQuery] = useState('')
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | undefined>('all')
@@ -185,13 +185,13 @@ const Rag: React.FC = () => {
             {/* List of collections - Updated to match Model Selection style */}
             <div
               className={`backdrop-blur rounded-2xl border p-5 ${
-                theme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
+                resolvedTheme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
               }`}
             >
               <div className="flex items-center justify-between mb-4">
                 <h3
                   className={`text-lg font-semibold flex items-center ${
-                    theme === 'dark' ? 'text-purple-300' : 'text-purple-700'
+                    resolvedTheme === 'dark' ? 'text-purple-300' : 'text-purple-700'
                   }`}
                 >
                   <Files className="w-5 h-5 mr-2" />
@@ -204,7 +204,7 @@ const Rag: React.FC = () => {
                     onClick={fetchCollections}
                     disabled={!isQdrantRunning || collectionsLoading}
                     className={`p-2 rounded-lg border transition-colors ${
-                      theme === 'dark'
+                      resolvedTheme === 'dark'
                         ? 'border-gray-600 hover:border-purple-400 hover:bg-purple-500/10 disabled:opacity-50'
                         : 'border-gray-300 hover:border-purple-400 hover:bg-purple-50 disabled:opacity-50'
                     }`}
@@ -216,7 +216,7 @@ const Rag: React.FC = () => {
                     <button
                       onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
                       className={`p-2 rounded-lg border transition-colors ${
-                        theme === 'dark'
+                        resolvedTheme === 'dark'
                           ? 'border-gray-600 hover:border-gray-500 hover:bg-gray-800/50'
                           : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                       }`}
@@ -231,12 +231,12 @@ const Rag: React.FC = () => {
                 <div className="text-center py-8">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                      theme === 'dark' ? 'bg-muted' : 'bg-gray-100'
+                      resolvedTheme === 'dark' ? 'bg-muted' : 'bg-gray-100'
                     }`}
                   >
-                    <Files className={`w-6 h-6 ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
+                    <Files className={`w-6 h-6 ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
                   </div>
-                  <p className={theme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
+                  <p className={resolvedTheme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
                     Loading collections...
                   </p>
                 </div>
@@ -244,15 +244,15 @@ const Rag: React.FC = () => {
                 <div className="text-center py-8">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                      theme === 'dark' ? 'bg-muted' : 'bg-gray-100'
+                      resolvedTheme === 'dark' ? 'bg-muted' : 'bg-gray-100'
                     }`}
                   >
-                    <Files className={`w-6 h-6 ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
+                    <Files className={`w-6 h-6 ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
                   </div>
-                  <p className={theme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
+                  <p className={resolvedTheme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
                     No collections available
                   </p>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`}>
+                  <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`}>
                     Create a collection to get started
                   </p>
                 </div>
@@ -263,7 +263,7 @@ const Rag: React.FC = () => {
                       <div className="relative">
                         <Search
                           className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
-                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                            resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                           }`}
                         />
                         <input
@@ -272,7 +272,7 @@ const Rag: React.FC = () => {
                           value={collectionSearchQuery}
                           onChange={(e) => setCollectionSearchQuery(e.target.value)}
                           className={`w-full pl-10 pr-4 py-2 rounded-lg border transition-colors ${
-                            theme === 'dark'
+                            resolvedTheme === 'dark'
                               ? 'bg-gray-800/50 border-gray-600 text-gray-200 placeholder-gray-400 focus:border-purple-500 focus:bg-gray-800'
                               : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-purple-500 focus:bg-white'
                           } focus:outline-none focus:ring-2 focus:ring-purple-500/20`}
@@ -300,10 +300,10 @@ const Rag: React.FC = () => {
                             }}
                             className={`relative p-3 rounded-lg border transition-all duration-200 cursor-pointer group ${
                               selectedCollection === collection
-                                ? theme === 'dark'
+                                ? resolvedTheme === 'dark'
                                   ? 'border-purple-500 bg-purple-500/10 shadow-sm'
                                   : 'border-purple-500 bg-purple-50 shadow-md'
-                                : theme === 'dark'
+                                : resolvedTheme === 'dark'
                                   ? 'border-border bg-card/30 hover:border-purple-400 hover:bg-purple-500/5'
                                   : 'border-gray-200 bg-white/50 hover:border-purple-300 hover:bg-purple-50/50 hover:shadow-sm'
                             }`}
@@ -312,7 +312,7 @@ const Rag: React.FC = () => {
                               <div className="flex-1 min-w-0">
                                 <h4
                                   className={`font-medium text-sm truncate ${
-                                    theme === 'dark' ? 'text-foreground' : 'text-gray-900'
+                                    resolvedTheme === 'dark' ? 'text-foreground' : 'text-gray-900'
                                   }`}
                                 >
                                   {collection}
@@ -320,7 +320,7 @@ const Rag: React.FC = () => {
                                 <div className="flex items-center space-x-3 mt-1">
                                   <span
                                     className={`text-xs ${
-                                      theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'
+                                      resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'
                                     }`}
                                   >
                                     Collection
@@ -330,7 +330,7 @@ const Rag: React.FC = () => {
                               {selectedCollection === collection && (
                                 <div
                                   className={`w-2 h-2 rounded-full animate-pulse ml-3 ${
-                                    theme === 'dark' ? 'bg-purple-400' : 'bg-purple-600'
+                                    resolvedTheme === 'dark' ? 'bg-purple-400' : 'bg-purple-600'
                                   }`}
                                 ></div>
                               )}
@@ -343,13 +343,13 @@ const Rag: React.FC = () => {
 
                   {collections.length === 0 && (
                     <div className="text-center py-6">
-                      <p className={`text-sm ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
+                      <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
                         No collections found
                       </p>
                       <button
                         onClick={() => setShowCollectionModal(true)}
                         className={`mt-2 text-xs px-3 py-1 rounded-md transition-colors ${
-                          theme === 'dark'
+                          resolvedTheme === 'dark'
                             ? 'text-purple-400 hover:text-purple-300 hover:bg-purple-500/10'
                             : 'text-purple-600 hover:text-purple-700 hover:bg-purple-50'
                         }`}
@@ -365,13 +365,13 @@ const Rag: React.FC = () => {
             {/* Model Selection */}
             <div
               className={`backdrop-blur rounded-2xl border p-5 ${
-                theme === 'dark' ? 'bg-card/50 border-blue-500/30' : 'bg-white/80 border-blue-200 shadow-sm'
+                resolvedTheme === 'dark' ? 'bg-card/50 border-blue-500/30' : 'bg-white/80 border-blue-200 shadow-sm'
               }`}
             >
               <div className="flex items-center justify-between mb-4">
                 <h3
                   className={`text-lg font-semibold flex items-center ${
-                    theme === 'dark' ? 'text-blue-300' : 'text-blue-700'
+                    resolvedTheme === 'dark' ? 'text-blue-300' : 'text-blue-700'
                   }`}
                 >
                   <Brain className="w-5 h-5 mr-2" />
@@ -381,7 +381,7 @@ const Rag: React.FC = () => {
                   <button
                     onClick={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
                     className={`p-2 rounded-lg border transition-colors ${
-                      theme === 'dark'
+                      resolvedTheme === 'dark'
                         ? 'border-gray-600 hover:border-gray-500 hover:bg-gray-800/50'
                         : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                     }`}
@@ -395,15 +395,15 @@ const Rag: React.FC = () => {
                 <div className="text-center py-8">
                   <div
                     className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 ${
-                      theme === 'dark' ? 'bg-muted' : 'bg-gray-100'
+                      resolvedTheme === 'dark' ? 'bg-muted' : 'bg-gray-100'
                     }`}
                   >
-                    <Brain className={`w-6 h-6 ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
+                    <Brain className={`w-6 h-6 ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`} />
                   </div>
-                  <p className={theme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
+                  <p className={resolvedTheme === 'dark' ? 'text-muted-foreground mb-1' : 'text-gray-600 mb-1'}>
                     No models available
                   </p>
-                  <p className={`text-sm ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`}>
+                  <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'}`}>
                     Install Ollama models to start
                   </p>
                 </div>
@@ -414,7 +414,7 @@ const Rag: React.FC = () => {
                       <div className="relative">
                         <Search
                           className={`absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 ${
-                            theme === 'dark' ? 'text-gray-400' : 'text-gray-500'
+                            resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-500'
                           }`}
                         />
                         <input
@@ -423,7 +423,7 @@ const Rag: React.FC = () => {
                           value={modelSearchQuery}
                           onChange={(e) => setModelSearchQuery(e.target.value)}
                           className={`w-full pl-10 pr-4 py-2 rounded-lg border transition-colors ${
-                            theme === 'dark'
+                            resolvedTheme === 'dark'
                               ? 'bg-gray-800/50 border-gray-600 text-gray-200 placeholder-gray-400 focus:border-blue-500 focus:bg-gray-800'
                               : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:bg-white'
                           } focus:outline-none focus:ring-2 focus:ring-blue-500/20`}
@@ -439,7 +439,7 @@ const Rag: React.FC = () => {
                               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                                 selectedSpecialty === specialty
                                   ? 'bg-blue-600 text-white'
-                                  : theme === 'dark'
+                                  : resolvedTheme === 'dark'
                                     ? 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                               }`}
@@ -468,10 +468,10 @@ const Rag: React.FC = () => {
                             onClick={() => setSelectedModel(model.model)}
                             className={`relative p-3 rounded-lg border transition-all duration-200 cursor-pointer group ${
                               selectedModel === model.model
-                                ? theme === 'dark'
+                                ? resolvedTheme === 'dark'
                                   ? 'border-blue-500 bg-blue-500/10 shadow-sm'
                                   : 'border-blue-500 bg-blue-50 shadow-md'
-                                : theme === 'dark'
+                                : resolvedTheme === 'dark'
                                   ? 'border-border bg-card/30 hover:border-blue-400 hover:bg-blue-500/5'
                                   : 'border-gray-200 bg-white/50 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-sm'
                             }`}
@@ -480,7 +480,7 @@ const Rag: React.FC = () => {
                               <div className="flex-1 min-w-0">
                                 <h4
                                   className={`font-medium text-sm truncate ${
-                                    theme === 'dark' ? 'text-foreground' : 'text-gray-900'
+                                    resolvedTheme === 'dark' ? 'text-foreground' : 'text-gray-900'
                                   }`}
                                 >
                                   {model.name}
@@ -488,14 +488,14 @@ const Rag: React.FC = () => {
                                 <div className="flex items-center space-x-3 mt-1">
                                   <span
                                     className={`text-xs ${
-                                      theme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'
+                                      resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-500'
                                     }`}
                                   >
                                     {(model.size / 1e9).toFixed(1)} GB
                                   </span>
                                   <span
                                     className={`text-xs font-medium ${
-                                      theme === 'dark' ? 'text-blue-300' : 'text-blue-700'
+                                      resolvedTheme === 'dark' ? 'text-blue-300' : 'text-blue-700'
                                     }`}
                                   >
                                     {model.specialty ?? 'General'}
@@ -505,7 +505,7 @@ const Rag: React.FC = () => {
                               {selectedModel === model.model && (
                                 <div
                                   className={`w-2 h-2 rounded-full animate-pulse ml-3 ${
-                                    theme === 'dark' ? 'bg-blue-400' : 'bg-blue-600'
+                                    resolvedTheme === 'dark' ? 'bg-blue-400' : 'bg-blue-600'
                                   }`}
                                 ></div>
                               )}
@@ -518,7 +518,7 @@ const Rag: React.FC = () => {
 
                   {filteredModels.length === 0 && availableModels.length > 0 && (
                     <div className="text-center py-6">
-                      <p className={`text-sm ${theme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
+                      <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
                         No models found matching your criteria
                       </p>
                       <button
@@ -527,7 +527,7 @@ const Rag: React.FC = () => {
                           setSelectedSpecialty('all')
                         }}
                         className={`mt-2 text-xs px-3 py-1 rounded-md transition-colors ${
-                          theme === 'dark'
+                          resolvedTheme === 'dark'
                             ? 'text-blue-400 hover:text-blue-300 hover:bg-blue-500/10'
                             : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50'
                         }`}
@@ -544,7 +544,7 @@ const Rag: React.FC = () => {
             <button
               onClick={handleAddDocumentClick}
               className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm cursor-pointer ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-blue-600 text-white hover:bg-blue-500 active:scale-95'
                   : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
               }`}
@@ -588,7 +588,7 @@ const Rag: React.FC = () => {
             <button
               onClick={handleAddDocumentClick}
               className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all shadow-sm cursor-pointer ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-blue-600 text-white hover:bg-blue-500 active:scale-95'
                   : 'bg-blue-600 text-white hover:bg-blue-700 active:scale-95'
               }`}

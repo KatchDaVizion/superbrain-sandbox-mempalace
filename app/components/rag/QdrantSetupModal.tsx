@@ -22,7 +22,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
   isCheckingQdrant,
   onRefreshStatus,
 }) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const {
     localModels = [],
     downloadModel,
@@ -90,7 +90,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div
         className={`rounded-l-2xl border p-6 m-4 max-w-2xl w-full max-h-[90vh] overflow-y-auto ${
-          theme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+          resolvedTheme === 'dark' ? 'bg-gray-900 border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
         }`}
       >
         {/* Header */}
@@ -112,7 +112,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
             {/* Progress Line */}
             <div
               className={`absolute h-1 top-1/2 left-0 right-0 transform -translate-y-1/2 transition-all duration-300 ${
-                theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                resolvedTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
               }`}
             >
               <div
@@ -132,7 +132,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                       ? 'bg-blue-500 border-blue-500 text-white shadow-lg scale-110'
                       : currentStep > step.id
                         ? 'bg-green-500 border-green-500 text-white shadow-md'
-                        : theme === 'dark'
+                        : resolvedTheme === 'dark'
                           ? 'bg-gray-800 border-gray-600 text-gray-400'
                           : 'bg-white border-gray-300 text-gray-500'
                   }`}
@@ -152,7 +152,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                         ? 'text-blue-500'
                         : currentStep > step.id
                           ? 'text-green-500'
-                          : theme === 'dark'
+                          : resolvedTheme === 'dark'
                             ? 'text-gray-400'
                             : 'text-gray-500'
                     }`}
@@ -172,7 +172,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
             <div className="space-y-6">
               {/* Status Card */}
               <div
-                className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
               >
                 <div className="flex items-center justify-between">
                   <h3 className="font-semibold flex items-center gap-2">
@@ -199,7 +199,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                     <button
                       onClick={onRefreshStatus}
                       className={`px-3 py-1 rounded text-sm font-medium cursor-pointer transition-colors ${
-                        theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                        resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
                       }`}
                     >
                       Refresh
@@ -214,7 +214,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
 
                 {/* Docker Method */}
                 <div
-                  className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}
+                  className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}
                 >
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm">
@@ -228,7 +228,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                   <div className="flex items-center gap-2">
                     <div
                       className={`flex-1 font-mono text-sm p-3 rounded ${
-                        theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+                        resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
                       }`}
                     >
                       docker run -p 6333:6333 qdrant/qdrant
@@ -236,7 +236,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                     <button
                       onClick={() => copyToClipboard('docker run -p 6333:6333 qdrant/qdrant')}
                       className={`p-3 rounded cursor-pointer transition-colors ${
-                        theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                        resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
                       }`}
                     >
                       {copiedCommand === 'docker run -p 6333:6333 qdrant/qdrant' ? (
@@ -250,7 +250,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
 
                 {/* Manual Method */}
                 <div
-                  className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'}`}
+                  className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'}`}
                 >
                   <h4 className="font-semibold mb-3 flex items-center gap-2">
                     <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-sm">
@@ -278,7 +278,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
 
               {/* Verification */}
               <div
-                className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
               >
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Terminal className="w-5 h-5 text-blue-500" />
@@ -288,7 +288,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                 <div className="flex items-center gap-2">
                   <div
                     className={`flex-1 font-mono text-sm p-3 rounded ${
-                      theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+                      resolvedTheme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
                     }`}
                   >
                     http://localhost:6333
@@ -296,7 +296,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                   <button
                     onClick={() => copyToClipboard('http://localhost:6333')}
                     className={`p-3 rounded cursor-pointer transition-colors ${
-                      theme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+                      resolvedTheme === 'dark' ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
                     }`}
                   >
                     {copiedCommand === 'http://localhost:6333' ? (
@@ -316,7 +316,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
             <div className="space-y-6">
               {/* Model Status Card */}
               <div
-                className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
               >
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -341,7 +341,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                   </div>
                 </div>
 
-                <div className={`p-3 rounded mb-4 ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}>
+                <div className={`p-3 rounded mb-4 ${resolvedTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-100'}`}>
                   <div className="font-mono text-sm">{QDRANT_EMBED_MODEL}</div>
                 </div>
 
@@ -379,7 +379,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                         </div>
                         <div
                           className={`h-2 rounded-full overflow-hidden ${
-                            theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
+                            resolvedTheme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'
                           }`}
                         >
                           <div
@@ -408,7 +408,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                 ) : (
                   <div
                     className={`p-3 rounded text-center ${
-                      theme === 'dark' ? 'bg-green-900/20 text-green-400' : 'bg-green-50 text-green-700'
+                      resolvedTheme === 'dark' ? 'bg-green-900/20 text-green-400' : 'bg-green-50 text-green-700'
                     }`}
                   >
                     <Check className="w-5 h-5 inline mr-2" />
@@ -419,7 +419,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
 
               {/* Model Information */}
               <div
-                className={`p-4 rounded-lg border ${theme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}
+                className={`p-4 rounded-lg border ${resolvedTheme === 'dark' ? 'bg-slate-800 border-slate-700' : 'bg-slate-50 border-slate-200'}`}
               >
                 <h4 className="font-semibold mb-3">About the Embedding Model</h4>
                 <ul className="space-y-2 text-sm">
@@ -448,7 +448,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
               <button
                 onClick={() => setCurrentStep(currentStep - 1)}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 cursor-pointer ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'bg-gray-700 hover:bg-gray-600 text-white'
                     : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                 }`}
@@ -460,7 +460,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
               <button
                 onClick={onClose}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'bg-gray-700 hover:bg-gray-600 text-white'
                     : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
                 }`}
@@ -474,7 +474,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
             <button
               onClick={() => window.open('https://qdrant.tech/documentation/quick-start/', '_blank')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors cursor-pointer ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-gray-700 hover:bg-gray-600 text-white'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
               }`}
@@ -490,7 +490,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                 className={`px-6 py-2 rounded-lg font-medium transition-all flex items-center gap-2 cursor-pointer ${
                   (currentStep === 1 && !isQdrantRunning) || (currentStep === 2 && !isEmbedInstalled)
                     ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : theme === 'dark'
+                    : resolvedTheme === 'dark'
                       ? 'bg-blue-600 hover:bg-blue-500 text-white'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                 }`}
@@ -505,7 +505,7 @@ const QdrantSetupModal: React.FC<QdrantSetupModalProps> = ({
                 className={`px-6 py-2 rounded-lg font-medium transition-all cursor-pointer ${
                   !isQdrantRunning || !isEmbedInstalled
                     ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                    : theme === 'dark'
+                    : resolvedTheme === 'dark'
                       ? 'bg-green-600 hover:bg-green-500 text-white'
                       : 'bg-green-600 hover:bg-green-700 text-white'
                 }`}

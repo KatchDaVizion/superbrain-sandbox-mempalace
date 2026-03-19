@@ -43,7 +43,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
   collectionName,
   qdrantConnected,
 }) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const [isOpen, setIsOpen] = useState(false)
   const [documents, setDocuments] = useState<DocumentInfo[]>([])
   const [totalChunks, setTotalChunks] = useState(0)
@@ -207,7 +207,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
   return (
     <div
       className={`backdrop-blur rounded-2xl border transition-all ${
-        theme === 'dark'
+        resolvedTheme === 'dark'
           ? 'bg-card/50 border-emerald-500/30'
           : 'bg-white/80 border-emerald-200 shadow-sm'
       }`}
@@ -220,7 +220,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
         <div className="flex items-center gap-3">
           <h3
             className={`text-lg font-semibold flex items-center ${
-              theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
+              resolvedTheme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
             }`}
           >
             {isOpen ? (
@@ -238,7 +238,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
           {documents.length > 0 && (
             <span
               className={`text-sm font-medium ${
-                theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                resolvedTheme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
               }`}
             >
               {documents.length} document{documents.length !== 1 ? 's' : ''},{' '}
@@ -254,18 +254,18 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
           {/* Summary Bar */}
           <div
             className={`flex items-center justify-between mb-4 px-4 py-2.5 rounded-lg ${
-              theme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-50'
+              resolvedTheme === 'dark' ? 'bg-emerald-500/10' : 'bg-emerald-50'
             }`}
           >
             <div className="flex items-center gap-2">
               <Layers
                 className={`w-4 h-4 ${
-                  theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                  resolvedTheme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                 }`}
               />
               <span
                 className={`text-sm font-medium ${
-                  theme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
+                  resolvedTheme === 'dark' ? 'text-emerald-300' : 'text-emerald-700'
                 }`}
               >
                 {documents.length} document{documents.length !== 1 ? 's' : ''},{' '}
@@ -280,7 +280,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
               }}
               disabled={loading}
               className={`p-1.5 rounded-lg border transition-colors ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'border-gray-600 hover:border-emerald-400 hover:bg-emerald-500/10 disabled:opacity-50'
                   : 'border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 disabled:opacity-50'
               }`}
@@ -296,12 +296,12 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
             <div className="text-center py-6">
               <RefreshCcw
                 className={`w-6 h-6 animate-spin mx-auto mb-2 ${
-                  theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
+                  resolvedTheme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'
                 }`}
               />
               <p
                 className={`text-sm ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'text-muted-foreground'
                     : 'text-gray-500'
                 }`}
@@ -315,7 +315,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
           {error && (
             <div
               className={`text-center py-4 px-4 rounded-lg mb-3 ${
-                theme === 'dark'
+                resolvedTheme === 'dark'
                   ? 'bg-red-500/10 text-red-300'
                   : 'bg-red-50 text-red-600'
               }`}
@@ -329,14 +329,14 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
             <div className="text-center py-6">
               <FileText
                 className={`w-8 h-8 mx-auto mb-2 ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'text-muted-foreground'
                     : 'text-gray-400'
                 }`}
               />
               <p
                 className={`text-sm ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'text-muted-foreground'
                     : 'text-gray-500'
                 }`}
@@ -345,7 +345,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
               </p>
               <p
                 className={`text-xs mt-1 ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'text-muted-foreground'
                     : 'text-gray-400'
                 }`}
@@ -361,7 +361,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
               {/* Table header */}
               <div
                 className={`grid grid-cols-12 gap-2 px-3 py-1.5 text-xs font-medium uppercase tracking-wider ${
-                  theme === 'dark'
+                  resolvedTheme === 'dark'
                     ? 'text-muted-foreground'
                     : 'text-gray-500'
                 }`}
@@ -376,7 +376,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                 <div
                   key={doc.source}
                   className={`grid grid-cols-12 gap-2 items-center px-3 py-2.5 rounded-lg border transition-colors ${
-                    theme === 'dark'
+                    resolvedTheme === 'dark'
                       ? 'border-border bg-card/30 hover:bg-card/50'
                       : 'border-gray-200 bg-white/50 hover:bg-gray-50'
                   }`}
@@ -385,14 +385,14 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                   <div className="col-span-5 flex items-center gap-2 min-w-0">
                     <FileText
                       className={`w-4 h-4 flex-shrink-0 ${
-                        theme === 'dark'
+                        resolvedTheme === 'dark'
                           ? 'text-emerald-400'
                           : 'text-emerald-600'
                       }`}
                     />
                     <span
                       className={`text-sm truncate ${
-                        theme === 'dark'
+                        resolvedTheme === 'dark'
                           ? 'text-foreground'
                           : 'text-gray-900'
                       }`}
@@ -406,7 +406,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                   <div className="col-span-2 text-center">
                     <span
                       className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
-                        theme === 'dark'
+                        resolvedTheme === 'dark'
                           ? 'bg-emerald-500/15 text-emerald-300'
                           : 'bg-emerald-100 text-emerald-700'
                       }`}
@@ -418,7 +418,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                   {/* Date */}
                   <div
                     className={`col-span-3 text-center text-xs ${
-                      theme === 'dark'
+                      resolvedTheme === 'dark'
                         ? 'text-muted-foreground'
                         : 'text-gray-500'
                     }`}
@@ -441,7 +441,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                       className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
                         sharedDocs.has(doc.source)
                           ? 'bg-blue-600'
-                          : theme === 'dark'
+                          : resolvedTheme === 'dark'
                           ? 'bg-gray-600'
                           : 'bg-gray-300'
                       }`}
@@ -457,7 +457,7 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                     {sharedDocs.has(doc.source) && (
                       <Globe
                         className={`w-3 h-3 ml-1 ${
-                          theme === 'dark'
+                          resolvedTheme === 'dark'
                             ? 'text-blue-400'
                             : 'text-blue-600'
                         }`}

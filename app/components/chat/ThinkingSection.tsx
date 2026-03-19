@@ -15,7 +15,7 @@ const ThinkingSection = ({
   isExpanded: boolean
   onToggle: () => void
 }) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const styles = getThinkingSectionTheme(theme || 'light') // apply helper
 
   return (

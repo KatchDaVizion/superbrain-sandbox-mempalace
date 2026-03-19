@@ -7,10 +7,10 @@ const LocalModelsLoader: React.FC<{ theme?: string }> = ({ theme }) =>{
         <div className="flex flex-col items-center space-y-4">
           <Loader2 
             className={`h-8 w-8 animate-spin ${
-              theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+              resolvedTheme === 'dark' ? 'text-blue-400' : 'text-blue-600'
             }`} 
           />
-          <p className={`text-sm ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
+          <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>
             Loading local models...
           </p>
         </div>

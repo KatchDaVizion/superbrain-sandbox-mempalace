@@ -18,7 +18,7 @@ interface IngestModalProps {
 }
 
 const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
-  const { theme } = useTheme()
+  const { theme, resolvedTheme } = useTheme()
   const [inputType, setInputType] = useState<'file' | 'url' | 'paste'>('file')
   const [files, setFiles] = useState<File[]>([])
   const [url, setUrl] = useState('')
@@ -263,7 +263,7 @@ const IngestModal: React.FC<IngestModalProps> = ({ isOpen, onClose }) => {
           <CardHeader className="pb-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+                <div className={`p-2 rounded-lg ${resolvedTheme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
                   <Upload className="h-5 w-5 text-blue-600" />
                 </div>
                 <CardTitle className="text-xl">Add Documents</CardTitle>

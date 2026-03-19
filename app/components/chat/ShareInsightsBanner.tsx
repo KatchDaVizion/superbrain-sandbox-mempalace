@@ -18,8 +18,8 @@ const ShareInsightsBanner: React.FC<ShareInsightsBannerProps> = ({
   isSharing,
   confirmationText,
 }) => {
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { theme, resolvedTheme } = useTheme()
+  const isDark = resolvedTheme === 'dark'
 
   // Local state for the confirmation phase
   const [showConfirmation, setShowConfirmation] = useState(false)
