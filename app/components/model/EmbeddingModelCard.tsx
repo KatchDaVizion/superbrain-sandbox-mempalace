@@ -1,6 +1,7 @@
 import React from 'react'
 import { Download, ChevronDown, Database, Cpu, HardDrive } from 'lucide-react'
 import { BrowseModel } from '../../types/model'
+import { useTheme } from 'next-themes'
 
 interface EmbeddingModelCardProps {
   model: BrowseModel
@@ -19,6 +20,7 @@ export const EmbeddingModelCard: React.FC<EmbeddingModelCardProps> = ({
   onVersionSelect,
   onDownload,
 }) => {
+  const { resolvedTheme } = useTheme()
   const currentVersion = model.versions.find((v) => v.model_name === selectedVersion) || model.versions[0]
   const isDownloading = downloadingModels.has(selectedVersion)
 

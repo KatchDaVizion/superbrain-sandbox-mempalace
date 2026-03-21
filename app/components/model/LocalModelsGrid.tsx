@@ -3,6 +3,7 @@ import { Play, Trash2, Download, Server, AlertCircle, CheckCircle2, Database } f
 import { LocalModel } from '@/app/types/model'
 import { getStatusColor } from '@/app/utils/model'
 import { Link } from 'react-router-dom'
+import { useTheme } from 'next-themes'
 
 interface LocalModelsGridProps {
   localModels: LocalModel[]
@@ -23,6 +24,7 @@ export const LocalModelsGrid: React.FC<LocalModelsGridProps> = ({
   ollamaStatus,
   onRetryConnection,
 }) => {
+  const { resolvedTheme } = useTheme()
   // Separate text and embedding models
   const textModels = localModels.filter(model => !model.isEmbedding && model.type !== 'embedding')
   const embeddingModels = localModels.filter(model => model.isEmbedding || model.type === 'embedding')

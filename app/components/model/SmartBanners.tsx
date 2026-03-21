@@ -1,6 +1,7 @@
 import React from 'react';
 import { AlertCircle, Download, X } from 'lucide-react';
 import { LocalModel } from '@/app/types/model';
+import { useTheme } from 'next-themes';
 
 interface SmartBannersProps {
   theme: string | undefined;
@@ -19,6 +20,7 @@ export const SmartBanners: React.FC<SmartBannersProps> = ({
   onRefresh,
   onHideRefreshHint
 }) => {
+  const { resolvedTheme } = useTheme()
   return (
     <>
       {/* Smart Refresh Hint - Only show when needed */}

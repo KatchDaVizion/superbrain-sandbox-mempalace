@@ -3,6 +3,7 @@ import { ChevronDown, Check, HardDrive, Cpu, Zap } from 'lucide-react';
 import { BrowseModel } from '@/app/types/model';
 import { formatSize, getRAMColor } from '@/app/utils/modelHelpers';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '../ui/dropdown-menu';
+import { useTheme } from 'next-themes';
 
 interface ModelVersionSelectorProps {
   model: BrowseModel;
@@ -17,6 +18,7 @@ export const ModelVersionSelector: React.FC<ModelVersionSelectorProps> = ({
   onVersionSelect,
   theme
 }) => {
+  const { resolvedTheme } = useTheme()
   const triggerRef = useRef<HTMLButtonElement>(null);
   const [triggerWidth, setTriggerWidth] = useState<number | undefined>(undefined);
 

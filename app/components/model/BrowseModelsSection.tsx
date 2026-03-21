@@ -3,6 +3,7 @@ import { Search, Download, Database } from 'lucide-react';
 import { ModelVersionSelector } from './ModelVersionSelector';
 import { BrowseModel } from '@/app/types/model';
 import { formatSize } from '@/app/utils/model';
+import { useTheme } from 'next-themes';
 
 interface BrowseModelsSectionProps {
   showBrowser: boolean;
@@ -31,6 +32,7 @@ export const BrowseModelsSection: React.FC<BrowseModelsSectionProps> = ({
   onVersionSelect,
   onDownload
 }) => {
+  const { resolvedTheme } = useTheme()
   // Separate and filter models
   const { textModels, embeddingModels } = useMemo(() => {
     const filtered = browseModels.filter((model) =>

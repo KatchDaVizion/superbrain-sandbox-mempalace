@@ -1,7 +1,9 @@
 import { Loader2 } from 'lucide-react'
 import React from 'react'
+import { useTheme } from 'next-themes'
 
 const ChatHistoryLoader: React.FC<{ theme?: string }> = ({ theme }) => {
+  const { resolvedTheme } = useTheme()
   return (
     <div className="flex-1 flex items-center justify-center h-full">
       <div className="flex flex-col items-center space-y-4">

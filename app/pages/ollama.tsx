@@ -17,6 +17,8 @@ import { useConversationLearning } from '../hooks/useConversationLearning'
 const OllamaPage = () => {
   const location = useLocation()
   const passedModel = location.state?.model
+  const loadConversationId = location.state?.loadConversationId
+  const loadModel = location.state?.loadModel
   const { theme, resolvedTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | undefined>('all')
@@ -52,6 +54,8 @@ const OllamaPage = () => {
     // Chat mode
     chatMode,
     setChatMode,
+    // Thread management
+    chatManager,
   } = useOllama()
 
   // Track previous isLoading state for detecting response completion
@@ -124,6 +128,22 @@ const OllamaPage = () => {
       setInitializedFromPassed(true) // prevent future overwrites
     }
   }, [passedModel, availableModels, initializedFromPassed])
+
+  // Handle History page navigation — load a specific conversation
+  const [initializedFromHistory, setInitializedFromHistory] = useState(false)
+
+  useEffect(() => {
+    if (!initializedFromHistory && loadConversationId && loadModel && availableModels.length > 0) {
+      setSelectedModel(loadModel)
+      setInitializedFromHistory(true)
+    }
+  }, [loadConversationId, loadModel, availableModels, initializedFromHistory, setSelectedModel])
+
+  useEffect(() => {
+    if (initializedFromHistory && loadConversationId && selectedModel === loadModel && chatManager.threads.length > 0) {
+      chatManager.selectThread(loadConversationId)
+    }
+  }, [initializedFromHistory, loadConversationId, loadModel, selectedModel, chatManager.threads.length])
 
   // Filter models based on search and specialty
   const filteredModels = availableModels.filter((model) => {
