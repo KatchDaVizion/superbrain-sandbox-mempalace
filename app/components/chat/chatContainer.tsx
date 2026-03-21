@@ -1,6 +1,7 @@
 // app/components/chat/chatContainer.tsx
 import React, { useState } from 'react'
-import { Shield, Plus, Circle, History, Globe, Database, Volume2, VolumeX, Headphones, Square } from 'lucide-react'
+import { Shield, Plus, Circle, History, Globe, Database, Volume2, VolumeX, Headphones, Square, Crosshair, Scale, Flame } from 'lucide-react'
+import type { ChatMode } from '@/app/hooks/useOllama'
 import { useTheme } from 'next-themes'
 import ChatHistory from './chatHistory'
 import MessageArea from './MessageArea'
@@ -65,6 +66,9 @@ interface ChatContainerProps {
   onKeepPrivate?: () => void
   isSharing?: boolean
   confirmationText?: string
+  // Chat mode toggle
+  chatMode?: ChatMode
+  onChatModeChange?: (mode: ChatMode) => void
 }
 
 const ChatContainer = ({
@@ -104,6 +108,9 @@ const ChatContainer = ({
   onKeepPrivate,
   isSharing = false,
   confirmationText,
+  // Chat mode
+  chatMode = 'balanced',
+  onChatModeChange,
 }: ChatContainerProps) => {
   const [showHistory, setShowHistory] = useState(false)
   const [chatStarted, setChatStarted] = useState(false)
@@ -183,6 +190,45 @@ const ChatContainer = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Chat Mode Toggle */}
+            {onChatModeChange && (
+              <div className={`flex items-center rounded-lg border p-0.5 ${
+                resolvedTheme === 'dark' ? 'bg-slate-800/60 border-slate-600/40' : 'bg-slate-100 border-slate-200'
+              }`}>
+                {([
+                  { mode: 'precise' as ChatMode, icon: Crosshair, label: 'Precise' },
+                  { mode: 'balanced' as ChatMode, icon: Scale, label: 'Balanced' },
+                  { mode: 'creative' as ChatMode, icon: Flame, label: 'Creative' },
+                ]).map(({ mode, icon: Icon, label }) => (
+                  <button
+                    key={mode}
+                    onClick={() => onChatModeChange(mode)}
+                    className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                      chatMode === mode
+                        ? mode === 'precise'
+                          ? resolvedTheme === 'dark'
+                            ? 'bg-cyan-500/20 text-cyan-300 shadow-sm shadow-cyan-500/10'
+                            : 'bg-cyan-50 text-cyan-700 shadow-sm'
+                          : mode === 'balanced'
+                            ? resolvedTheme === 'dark'
+                              ? 'bg-purple-500/20 text-purple-300 shadow-sm shadow-purple-500/10'
+                              : 'bg-purple-50 text-purple-700 shadow-sm'
+                            : resolvedTheme === 'dark'
+                              ? 'bg-orange-500/20 text-orange-300 shadow-sm shadow-orange-500/10'
+                              : 'bg-orange-50 text-orange-700 shadow-sm'
+                        : resolvedTheme === 'dark'
+                          ? 'text-slate-400 hover:text-slate-300 hover:bg-slate-700/50'
+                          : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                    }`}
+                    title={`${label} mode`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Voice Controls */}
             {browserSupportsVoice && (
               <div className="flex items-center space-x-1">

@@ -49,6 +49,9 @@ const OllamaPage = () => {
     setUseNetworkKnowledge,
     docCount,
     qdrantConnected,
+    // Chat mode
+    chatMode,
+    setChatMode,
   } = useOllama()
 
   // Track previous isLoading state for detecting response completion
@@ -454,6 +457,9 @@ const OllamaPage = () => {
               onMicClick={handleMicClick}
               isListening={voice.isListening}
               browserSupportsVoice={voice.browserSupported}
+              // Chat mode
+              chatMode={chatMode}
+              onChatModeChange={setChatMode}
               // Learning props
               showShareBanner={learning.showShareBanner}
               insightCount={learning.pendingInsights.length}

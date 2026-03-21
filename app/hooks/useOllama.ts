@@ -69,6 +69,24 @@ type CreativityLevel = {
   desc: string
 }
 
+/**
+ * Chat mode presets for the creativity toggle
+ */
+export type ChatMode = 'precise' | 'balanced' | 'creative'
+
+export type ChatModeConfig = {
+  temperature: number
+  top_p: number
+  label: string
+  desc: string
+}
+
+export const CHAT_MODE_CONFIGS: Record<ChatMode, ChatModeConfig> = {
+  precise: { temperature: 0.1, top_p: 0.5, label: 'Precise', desc: 'Factual, deterministic responses' },
+  balanced: { temperature: 0.5, top_p: 0.8, label: 'Balanced', desc: 'Mix of accuracy and creativity' },
+  creative: { temperature: 0.9, top_p: 0.95, label: 'Creative', desc: 'Imaginative, varied responses' },
+}
+
 // ------------------ Main Hook ------------------
 
 export const useOllama = () => {
@@ -81,6 +99,21 @@ export const useOllama = () => {
 
   // Chat Configuration State
   const [creativity, setCreativity] = useState<number[]>([0.5])
+
+  // Chat Mode (3-button toggle, persisted to localStorage)
+  const [chatMode, setChatModeState] = useState<ChatMode>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('superbrain-chat-mode') as ChatMode) || 'balanced'
+    }
+    return 'balanced'
+  })
+
+  const setChatMode = useCallback((mode: ChatMode) => {
+    setChatModeState(mode)
+    localStorage.setItem('superbrain-chat-mode', mode)
+    // Sync the creativity slider to match the mode
+    setCreativity([CHAT_MODE_CONFIGS[mode].temperature])
+  }, [])
 
   // Message Management State
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
@@ -569,6 +602,7 @@ When you use information from the context above, cite the source using [1], [2],
       abortControllerRef.current = abortController
 
       // Send request to Ollama API with streaming and abort signal
+      const modeConfig = CHAT_MODE_CONFIGS[chatMode]
       const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -576,7 +610,13 @@ When you use information from the context above, cite the source using [1], [2],
           model: selectedModel,
           messages: ollamaMessages,
           stream: true,
-          options: { temperature: creativity[0] },
+          options: {
+            temperature: modeConfig.temperature,
+            top_p: modeConfig.top_p,
+            top_k: 40,
+            num_ctx: 4096,
+            repeat_penalty: 1.1,
+          },
         }),
         signal: abortController.signal,
       })
@@ -710,6 +750,7 @@ When you use information from the context above, cite the source using [1], [2],
     isLoading,
     selectedModel,
     creativity,
+    chatMode,
     currentThread,
     createThread,
     refreshCurrentThread,
@@ -771,6 +812,8 @@ When you use information from the context above, cite the source using [1], [2],
     creativity,
     setCreativity,
     getCurrentCreativityLevel,
+    chatMode,
+    setChatMode,
 
     // Message Management
     chatMessages,
