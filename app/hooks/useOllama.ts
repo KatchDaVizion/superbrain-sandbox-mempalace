@@ -649,8 +649,7 @@ When you use information from the context above, cite the source using [1], [2],
           if (done) break
 
           buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('
-');
+          const lines = buffer.split('\n');
           buffer = lines.pop() || '';
 
           for (const line of lines.filter(line => line.trim())) {
