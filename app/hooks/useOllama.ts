@@ -584,6 +584,7 @@ When you use information from the context above, cite the source using [1], [2],
       if (systemPrompt) {
         ollamaMessages.push({ role: 'system', content: systemPrompt })
       }
+      chatMessages.filter(msg => !msg.id.includes('welcome') && msg.content).forEach(msg => ollamaMessages.push({ role: msg.role, content: msg.content }));
       ollamaMessages.push({ role: 'user', content: currentInput })
 
       // Create assistant message placeholder
@@ -636,6 +637,7 @@ When you use information from the context above, cite the source using [1], [2],
       let hasReceivedContent = false
 
       try {
+        let buffer = '';
         while (true) {
           // Check if request was aborted
           if (abortController.signal.aborted) {
@@ -646,10 +648,12 @@ When you use information from the context above, cite the source using [1], [2],
           const { done, value } = await reader.read()
           if (done) break
 
-          const chunk = decoder.decode(value, { stream: true })
-          const lines = chunk.split('\n').filter((line) => line.trim())
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('
+');
+          buffer = lines.pop() || '';
 
-          for (const line of lines) {
+          for (const line of lines.filter(line => line.trim())) {
             try {
               const data = JSON.parse(line)
 
