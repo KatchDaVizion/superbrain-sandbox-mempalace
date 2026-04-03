@@ -8,6 +8,9 @@ import {
   RefreshCcw,
   Globe,
   Layers,
+  Upload,
+  Loader2,
+  Check,
 } from 'lucide-react'
 
 interface DocumentInfo {
@@ -50,6 +53,8 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sharedDocs, setSharedDocsState] = useState<Set<string>>(getSharedDocs)
+  const [sharingDoc, setSharingDoc] = useState<string | null>(null) // source currently being shared
+  const [shareResult, setShareResult] = useState<Record<string, { submitted: number; failed: number } | null>>({})
 
   const fetchDocuments = useCallback(async () => {
     if (!collectionName || !qdrantConnected) {
@@ -166,18 +171,69 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
     return () => window.removeEventListener('rag:document-added', handler)
   }, [isOpen, fetchDocuments])
 
-  const toggleShare = (source: string) => {
-    setSharedDocsState((prev) => {
-      const next = new Set(prev)
-      if (next.has(source)) {
-        next.delete(source)
-      } else {
-        next.add(source)
+  /**
+   * Share document chunks to SN442 network.
+   * Finds the doc_id from Qdrant points, then POSTs each chunk to Frankfurt.
+   */
+  const shareToNetwork = useCallback(async (source: string) => {
+    if (sharingDoc || sharedDocs.has(source)) return
+
+    const confirmed = window.confirm(
+      `Share "${formatSource(source)}" to the SN442 network?\n\nThis is permanent and visible to all peers. You may earn TAO when others use your knowledge.`
+    )
+    if (!confirmed) return
+
+    setSharingDoc(source)
+    setShareResult((prev) => ({ ...prev, [source]: null }))
+
+    try {
+      // We need the doc_id. Fetch it from the first chunk that matches this source.
+      const scrollResp = await fetch(
+        `http://localhost:6333/collections/${encodeURIComponent(collectionName!)}/points/scroll`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filter: { must: [{ key: 'source', match: { value: source } }] },
+            limit: 1,
+            with_payload: true,
+            with_vector: false,
+          }),
+        }
+      )
+
+      if (!scrollResp.ok) throw new Error('Failed to query Qdrant')
+
+      const data = await scrollResp.json()
+      const docId = data?.result?.points?.[0]?.payload?.doc_id
+
+      if (!docId) {
+        // Fallback: share using the existing text-mode handler
+        throw new Error('No doc_id found — cannot identify chunks')
       }
-      persistSharedDocs(next)
-      return next
-    })
-  }
+
+      const result = await (window as any).electron.invoke('rag:share-chunks-to-network', {
+        docId,
+        collectionName,
+      })
+
+      setShareResult((prev) => ({ ...prev, [source]: { submitted: result.submitted, failed: result.failed } }))
+
+      if (result.submitted > 0) {
+        setSharedDocsState((prev) => {
+          const next = new Set(prev)
+          next.add(source)
+          persistSharedDocs(next)
+          return next
+        })
+      }
+    } catch (err) {
+      console.error('Share to network failed:', err)
+      setShareResult((prev) => ({ ...prev, [source]: { submitted: 0, failed: -1 } }))
+    } finally {
+      setSharingDoc(null)
+    }
+  }, [sharingDoc, sharedDocs, collectionName])
 
   const formatSource = (source: string): string => {
     // If it looks like a file path, extract just the filename
@@ -426,43 +482,35 @@ const DocumentInventory: React.FC<DocumentInventoryProps> = ({
                     {formatDate(doc.dateAdded)}
                   </div>
 
-                  {/* Share toggle */}
+                  {/* Share to SN442 */}
                   <div className="col-span-2 flex justify-center items-center">
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={sharedDocs.has(doc.source)}
-                      onClick={() => toggleShare(doc.source)}
-                      title={
-                        sharedDocs.has(doc.source)
-                          ? 'Shared to network'
-                          : 'Share to network'
-                      }
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
-                        sharedDocs.has(doc.source)
-                          ? 'bg-blue-600'
-                          : resolvedTheme === 'dark'
-                          ? 'bg-gray-600'
-                          : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          sharedDocs.has(doc.source)
-                            ? 'translate-x-[18px]'
-                            : 'translate-x-[3px]'
-                        }`}
-                      />
-                    </button>
-                    {sharedDocs.has(doc.source) && (
-                      <Globe
-                        className={`w-3 h-3 ml-1 ${
+                    {sharedDocs.has(doc.source) ? (
+                      <span className="flex items-center gap-1 text-xs text-green-500">
+                        <Check className="w-3 h-3" /> Shared
+                      </span>
+                    ) : sharingDoc === doc.source ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-400" />
+                    ) : (
+                      <button
+                        onClick={() => shareToNetwork(doc.source)}
+                        title="Share to SN442 network — permanent"
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
                           resolvedTheme === 'dark'
-                            ? 'text-blue-400'
-                            : 'text-blue-600'
+                            ? 'bg-blue-500/10 text-blue-400 hover:bg-blue-500/20'
+                            : 'bg-blue-50 text-blue-600 hover:bg-blue-100'
                         }`}
-                      />
+                      >
+                        <Upload className="w-3 h-3" />
+                        Share
+                      </button>
                     )}
+                    {shareResult[doc.source]?.submitted ? (
+                      <span className="text-xs text-green-500 ml-1">
+                        {shareResult[doc.source]!.submitted} chunks
+                      </span>
+                    ) : shareResult[doc.source]?.failed === -1 ? (
+                      <span className="text-xs text-red-400 ml-1">Error</span>
+                    ) : null}
                   </div>
                 </div>
               ))}

@@ -275,12 +275,40 @@ export const useRagOllama = () => {
   }, [selectedModel, createThread])
 
   /**
-   * Generate a descriptive title from the first message
+   * Generate a descriptive title from the first message (simple fallback)
    */
   const generateThreadTitle = (message: string): string => {
     const title = message.substring(0, 50).trim()
     return title.length < message.length ? title + '...' : title
   }
+
+  /**
+   * AI-powered title generation for RAG threads.
+   * Ported from N.O.M.A.D. auto-title pattern (Apache 2.0, Crosstalk Solutions LLC).
+   */
+  const generateSmartTitle = useCallback(async (userMsg: string, threadId: string): Promise<void> => {
+    if (!selectedCollection) return
+    try {
+      const resp = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5:0.5b',
+          prompt: `Generate a concise title (under 50 chars) for a knowledge base question:\n"${userMsg.substring(0, 200)}"\n\nReturn ONLY the title text:`,
+          stream: false,
+          options: { temperature: 0.3, num_predict: 30 },
+        }),
+      })
+      if (!resp.ok) return
+      const data = await resp.json()
+      const title = (data.response || '').trim().replace(/^["']|["']$/g, '').substring(0, 57)
+      if (title.length < 3) return
+
+      await (window as any).electron.invoke('rag:rename-thread', threadId, selectedCollection, title)
+    } catch {
+      // Best-effort
+    }
+  }, [selectedCollection])
 
   /**
    * Check if a model is ready to handle requests
@@ -471,6 +499,12 @@ export const useRagOllama = () => {
           }
           return msgs
         })
+
+        // Auto-generate smart title on first exchange
+        const realMsgs = chatMessagesRef.current.filter((m) => !m.id.includes('welcome'))
+        if (realMsgs.length <= 1 && workingThread) {
+          generateSmartTitle(currentInput, workingThread.id)
+        }
 
         // Save to backend (unchanged)
         if (workingThread && selectedModel) {

@@ -1,4 +1,5 @@
 // app/services/ingestRAG.ts
+// Token-aware chunking ported from N.O.M.A.D. pattern (Apache 2.0, Crosstalk Solutions LLC)
 import { OllamaEmbeddings } from '@langchain/ollama'
 import { QdrantVectorStore } from '@langchain/qdrant'
 import { loadDocuments, DocumentType } from './documentLoader'
@@ -11,8 +12,9 @@ const DEFAULT_CONFIG = {
   USER_ID: 'user-electron-123',
   TEAM_ID: 'team-superbrain',
   TAGS: ['electron', 'desktop'],
-  CHUNK_SIZE: 900,
-  CHUNK_OVERLAP: 150,
+  // Token-aware chunking (N.O.M.A.D. pattern: 1700 tokens ≈ 5100 chars, 450 char overlap)
+  CHUNK_SIZE: 5100,
+  CHUNK_OVERLAP: 450,
 } as const
 
 // --- Interfaces ---

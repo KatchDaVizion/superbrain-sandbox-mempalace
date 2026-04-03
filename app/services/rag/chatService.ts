@@ -1,7 +1,12 @@
 // services/chatService.ts
+// Adaptive context budgeting & query rewriting ported from
+// Project N.O.M.A.D. (Apache 2.0, Crosstalk Solutions LLC)
 import { ChatOllama } from '@langchain/ollama'
-import { initializeVectorStore, searchSimilarDocuments } from './vectorStore'
+import { initializeVectorStore } from './vectorStore'
+import { hybridSearch } from './hybridSearch'
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
+import axios from 'axios'
+import { ZimService, type ZimResult } from '../../../lib/zim/zimService'
 
 export interface ChatResponse {
   answer: string
@@ -24,6 +29,7 @@ export interface ChatOptions {
   temperature?: number // Temperature for generation
   collectionName?: string // Qdrant collection name
   baseUrl?: string // Ollama base URL
+  history?: Array<{ role: string; content: string }> // Conversation history for query rewriting
 }
 
 // Default configuration
@@ -34,6 +40,132 @@ const DEFAULT_CHAT_CONFIG = {
   K: 5,
 } as const
 
+// ── Adaptive Context Budget (ported from N.O.M.A.D.) ──────────────────────
+
+interface ContextBudget {
+  maxResults: number
+  maxTokens: number
+}
+
+/**
+ * Returns context limits based on model size.
+ * Small models choke on too much context; large models benefit from more.
+ */
+export function getContextBudget(modelName: string): ContextBudget {
+  const name = modelName.toLowerCase()
+  if (name.includes('0.5b') || name.includes('1b') || name.includes('3b') || name.includes('tinyllama'))
+    return { maxResults: 2, maxTokens: 1000 }
+  if (name.includes('7b') || name.includes('8b'))
+    return { maxResults: 4, maxTokens: 2500 }
+  return { maxResults: 5, maxTokens: 4000 }
+}
+
+// ── Query Rewriting (ported from N.O.M.A.D.) ──────────────────────────────
+
+/**
+ * Rewrites a user query into a standalone, searchable form using conversation context.
+ * Uses the smallest available model to keep latency low.
+ * Falls back to the original query on any error.
+ */
+async function rewriteQuery(
+  userQuery: string,
+  history: Array<{ role: string; content: string }>,
+  baseUrl: string = DEFAULT_CHAT_CONFIG.BASE_URL
+): Promise<string> {
+  if (!history || history.length === 0) return userQuery
+
+  try {
+    const historyContext = history
+      .slice(-6)
+      .map((m) => `${m.role}: ${m.content.substring(0, 200)}`)
+      .join('\n')
+
+    const resp = await axios.post(
+      `${baseUrl}/api/generate`,
+      {
+        model: 'qwen2.5:0.5b',
+        prompt: `Given this conversation:\n${historyContext}\n\nRewrite this as a standalone search query (max 150 words, return ONLY the rewritten query): "${userQuery}"`,
+        stream: false,
+      },
+      { timeout: 10_000 }
+    )
+
+    const rewritten = resp.data?.response?.trim()
+    if (rewritten && rewritten.length > 3 && rewritten.length < 500) {
+      console.log(`[QueryRewrite] "${userQuery}" → "${rewritten.substring(0, 80)}..."`)
+      return rewritten
+    }
+    return userQuery
+  } catch (error) {
+    console.warn('[QueryRewrite] Rewrite failed, using original query:', (error as Error).message)
+    return userQuery
+  }
+}
+
+// ── ZIM Context (offline Wikipedia / knowledge packs) ─────────────────────
+
+/**
+ * Search ZIM knowledge packs for context. Returns formatted context string.
+ * Layer 1 in the 4-layer knowledge hierarchy (ZIM → Qdrant → SN442 → Ollama).
+ * Graceful: returns empty on any failure.
+ */
+async function getZimContext(query: string): Promise<{ context: string; results: ZimResult[] }> {
+  try {
+    const zimService = ZimService.getInstance()
+    if (!zimService.isRunning) return { context: '', results: [] }
+
+    const results = await zimService.search(query, 3)
+    if (results.length === 0) return { context: '', results: [] }
+
+    const context = results
+      .map((r) => `[Wikipedia: ${r.title}]\n${r.snippet}`)
+      .join('\n\n')
+
+    console.log(`[ZIM] Found ${results.length} offline result(s) for: "${query.substring(0, 50)}"`)
+    return { context, results }
+  } catch {
+    return { context: '', results: [] }
+  }
+}
+
+// ── SN442 Network fallback ────────────────────────────────────────────────
+
+const SN442_NODE = 'http://46.225.114.202:8400'
+
+/**
+ * Query SN442 network for validated knowledge chunks.
+ * Layer 3: only called when local sources (ZIM + Qdrant) are insufficient.
+ * Graceful: returns empty on any failure.
+ */
+async function getNetworkContext(query: string): Promise<{ context: string; sources: SourceReference[] }> {
+  try {
+    const t0 = Date.now()
+    const resp = await axios.post(
+      `${SN442_NODE}/query`,
+      { question: query, mode: 'auto' },
+      { timeout: 10_000 }
+    )
+    const latency = Date.now() - t0
+    const answer = resp.data?.answer || ''
+    const method = resp.data?.method || 'unknown'
+    const tier = resp.data?.tier || 'unknown'
+    if (!answer || answer.length < 10) return { context: '', sources: [] }
+
+    console.log(`[chat] Network: got response (method: ${method}, tier: ${tier}, latency: ${latency}ms)`)
+
+    return {
+      context: `[SN442 Network]\n${answer.substring(0, 1000)}`,
+      sources: [{
+        content: answer.substring(0, 300),
+        source: 'SN442 Network (peer-validated)',
+        type: 'network',
+      }],
+    }
+  } catch {
+    return { context: '', sources: [] }
+  }
+}
+
 export async function* streamChatWithRAG(
   query: string,
   options: ChatOptions = {}
@@ -42,23 +174,104 @@ export async function* streamChatWithRAG(
     model = DEFAULT_CHAT_CONFIG.MODEL,
     temperature = DEFAULT_CHAT_CONFIG.TEMPERATURE,
     baseUrl = DEFAULT_CHAT_CONFIG.BASE_URL,
-    k = DEFAULT_CHAT_CONFIG.K,
   } = options
-  await initializeVectorStore(options.baseUrl, options.collectionName)
 
-  // 1. Retrieve relevant documents with metadata
-  const retrievedDocs = await searchSimilarDocuments(query, k)
+  // 0. Adaptive context budget based on model size
+  const budget = getContextBudget(model)
+  const k = Math.min(options.k || DEFAULT_CHAT_CONFIG.K, budget.maxResults)
 
-  // 2. Build context from retrieved documents
+  // 0.5. Query rewriting — produce standalone searchable query
+  const searchQuery = await rewriteQuery(query, options.history || [], baseUrl)
+
+  // ━━━ LAYER 1: ZIM (offline Wikipedia — instant, zero internet) ━━━━━━━
+  const zimData = await getZimContext(searchQuery)
+  const zimResultCount = zimData.results.length
+  console.log(`[chat] ZIM: ${zimResultCount > 0 ? `${zimResultCount} result(s)` : 'skipped (no packs or no results)'}`)
+
+  // ━━━ LAYER 2: QDRANT (local knowledge base — fast, zero internet) ━━━━
+  let retrievedDocs: Awaited<ReturnType<typeof hybridSearch>> = []
+  try {
+    await initializeVectorStore(options.baseUrl, options.collectionName)
+    retrievedDocs = await hybridSearch(searchQuery, k)
+  } catch (error) {
+    console.warn('[chat] Qdrant: not running or error —', (error as Error).message)
+  }
+  console.log(`[chat] Qdrant: ${retrievedDocs.length > 0 ? `${retrievedDocs.length} result(s) (local + p2p-received)` : 'skipped (not running or empty)'}`)
+
+  // ━━━ NETWORKTEST MODE — force network layer ━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const isNetworkTest = query.startsWith('NETWORKTEST')
+  if (isNetworkTest) {
+    console.log('[chat] NETWORKTEST mode — forcing network layer')
+    const networkData = await getNetworkContext(searchQuery.replace(/^NETWORKTEST\s*/, ''))
+    // Skip ZIM + Qdrant, go straight to network + Ollama
+    const context = networkData.context
+    const sourceMap = new Map<string, SourceReference>()
+    networkData.sources.forEach((s, i) => sourceMap.set(`[N${i + 1}]`, s))
+
+    const modelInstance = new ChatOllama({ model, baseUrl, temperature })
+    const systemPrompt = context
+      ? `You are a helpful assistant. Use the following context to answer accurately.\n\nContext:\n${context}\n\nIMPORTANT: Cite your sources using [N1] etc. notation.`
+      : 'You are a helpful assistant.'
+    const messages: BaseMessage[] = [new SystemMessage(systemPrompt), new HumanMessage(query.replace(/^NETWORKTEST\s*/, ''))]
+    let fullResponse = ''
+    const stream = await modelInstance.stream(messages)
+    for await (const chunk of stream) {
+      if (chunk.content) {
+        const text = typeof chunk.content === 'string' ? chunk.content : ''
+        fullResponse += text
+        yield text
+      }
+    }
+    yield { answer: fullResponse, sources: extractSourcesFromResponse(fullResponse, sourceMap) }
+    return
+  }
+
+  // ━━━ LAYER 3: SN442 NETWORK (fallback — only if local is insufficient) ━
+  let networkData: { context: string; sources: SourceReference[] } = { context: '', sources: [] }
+  const localResultCount = zimResultCount + retrievedDocs.length
+  if (localResultCount < 2) {
+    console.log('[chat] Network: querying SN442 (local context insufficient)...')
+    networkData = await getNetworkContext(searchQuery)
+    console.log(`[chat] Network: ${networkData.context ? 'got response' : 'unreachable or empty'}`)
+  } else {
+    console.log('[chat] Network: skipped (sufficient local context)')
+  }
+
+  // ━━━ BUILD CONTEXT from all sources (respecting token budget) ━━━━━━━━
   const contextParts: string[] = []
   const sourceMap = new Map<string, SourceReference>()
+  let tokenEstimate = 0
+  const charBudget = budget.maxTokens * 4 // ~4 chars per token
 
+  // ZIM context goes FIRST (offline knowledge is primary)
+  if (zimData.context) {
+    tokenEstimate += zimData.context.length
+    contextParts.push(zimData.context)
+
+    zimData.results.forEach((r, i) => {
+      const sourceId = `[W${i + 1}]`
+      sourceMap.set(sourceId, {
+        content: r.snippet.substring(0, 300),
+        source: `Wikipedia: ${r.title}`,
+        type: 'zim',
+        url: r.url,
+      })
+    })
+  }
+
+  // Then Qdrant results
   retrievedDocs.forEach((doc, index) => {
+    const snippet = doc.pageContent.substring(0, 500)
+    const snippetChars = snippet.length + 20
+
+    if (index > 0 && tokenEstimate + snippetChars > charBudget) return
+
+    tokenEstimate += snippetChars
     const sourceId = `[${index + 1}]`
-    contextParts.push(`${sourceId} ${doc.pageContent.substring(0, 500)}...`)
+    contextParts.push(`${sourceId} ${snippet}...`)
 
     sourceMap.set(sourceId, {
-      content: doc.pageContent.substring(0, 500),
+      content: snippet,
       source: doc.metadata.source || 'Unknown',
       type: doc.metadata.type || doc.metadata.sourceType || 'unknown',
       url: doc.metadata.url,
@@ -67,27 +280,40 @@ export async function* streamChatWithRAG(
     })
   })
 
+  // Then network context (last priority)
+  if (networkData.context && tokenEstimate + networkData.context.length <= charBudget) {
+    tokenEstimate += networkData.context.length
+    contextParts.push(networkData.context)
+
+    networkData.sources.forEach((s, i) => {
+      sourceMap.set(`[N${i + 1}]`, s)
+    })
+  }
+
   const context = contextParts.join('\n\n')
 
-  // 3. Initialize Ollama chat model
+  // ━━━ LAYER 4: OLLAMA (always local, always last) ━━━━━━━━━━━━━━━━━━━
+  console.log(`[chat] Generating with ${model}... (${contextParts.length} context block(s))`)
+
   const modelInstance = new ChatOllama({
     model,
     baseUrl,
     temperature,
   })
 
-  // 4. Build prompt with context
-  const systemPrompt = `You are a helpful assistant. Use the following context to answer accurately.
+  const systemPrompt = context
+    ? `You are a helpful assistant. Use the following context to answer accurately.
 
   Context:
   ${context}
 
-  IMPORTANT: Cite your sources using [1], [2], etc. notation.
+  IMPORTANT: Cite your sources using [1], [2], [W1], [N1] etc. notation.
   If context doesn't contain relevant information, say so clearly.`
+    : 'You are a helpful assistant. Answer the user\'s question to the best of your ability.'
 
   const messages: BaseMessage[] = [new SystemMessage(systemPrompt), new HumanMessage(query)]
 
-  // 5. Stream response token-by-token
+  // Stream response token-by-token
   let fullResponse = ''
   const stream = await modelInstance.stream(messages)
 
@@ -95,15 +321,13 @@ export async function* streamChatWithRAG(
     if (chunk.content) {
       const text = typeof chunk.content === 'string' ? chunk.content : ''
       fullResponse += text
-      // Yield each chunk as a string
       yield text
     }
   }
 
-  // 6. Extract sources and return final result as object (not string)
+  // Extract sources and return final result
   const sources = extractSourcesFromResponse(fullResponse, sourceMap)
 
-  // Yield the final ChatResponse object to signal completion
   yield {
     answer: fullResponse,
     sources,
@@ -112,7 +336,8 @@ export async function* streamChatWithRAG(
 
 function extractSourcesFromResponse(response: string, sourceMap: Map<string, SourceReference>): SourceReference[] {
   const sources: SourceReference[] = []
-  const citationRegex = /\[(\d+)\]/g
+  // Match [1], [2], [W1], [W2], [N1] etc.
+  const citationRegex = /\[([WN]?\d+)\]/g
   const matches = response.matchAll(citationRegex)
 
   for (const match of matches) {
@@ -120,6 +345,13 @@ function extractSourcesFromResponse(response: string, sourceMap: Map<string, Sou
     const source = sourceMap.get(sourceId)
     if (source && !sources.some((s) => s.source === source.source)) {
       sources.push(source)
+    }
+  }
+
+  // Also include all ZIM/network sources if context was provided but not explicitly cited
+  for (const [, ref] of sourceMap) {
+    if ((ref.type === 'zim' || ref.type === 'network') && !sources.some((s) => s.source === ref.source)) {
+      sources.push(ref)
     }
   }
 

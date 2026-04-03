@@ -6,6 +6,7 @@ import MarkdownAssistance from './MarkDown'
 import ThinkingSection from './ThinkingSection'
 import LoadingIndicator from './LoadingIndicator'
 import SourcesPanel, { type SourceItem } from './SourcesPanel'
+import { SourceBadges } from './SourceBadges'
 import { getMessageTheme } from '@/app/utils/theme'
 
 type Message = {
@@ -124,7 +125,10 @@ const MessageArea = ({ chatMessages, isLoading }: MessageAreaProps) => {
 
                   {/* Sources panel below the message bubble */}
                   {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                    <SourcesPanel sources={msg.sources} />
+                    <>
+                      <SourcesPanel sources={msg.sources} />
+                      <SourceBadges sources={msg.sources} />
+                    </>
                   )}
                 </div>
               </div>

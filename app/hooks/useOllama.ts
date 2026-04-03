@@ -87,6 +87,50 @@ export const CHAT_MODE_CONFIGS: Record<ChatMode, ChatModeConfig> = {
   creative: { temperature: 0.9, top_p: 0.95, label: 'Creative', desc: 'Imaginative, varied responses' },
 }
 
+// ── Thinking Model Detection (ported from N.O.M.A.D., Apache 2.0, Crosstalk Solutions LLC) ──
+
+const THINKING_MODEL_PATTERNS = [
+  'deepseek-r1', 'deepseek-r2', 'qwq', 'marco-o1',
+  ':thinking', 'reflection',
+]
+
+/**
+ * Check if a model name indicates a "thinking" / reasoning model.
+ * These models emit <think>...</think> tags that should be separated from the final answer.
+ */
+export function isThinkingModel(modelName: string): boolean {
+  const name = modelName.toLowerCase()
+  return THINKING_MODEL_PATTERNS.some((p) => name.includes(p))
+}
+
+/**
+ * Parse streaming content that may contain <think> tags.
+ * Returns { thinking, content } where thinking is the reasoning text
+ * and content is the final answer.
+ */
+export function parseThinkingContent(raw: string): { thinking: string; content: string } {
+  const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/g)
+  if (!thinkMatch) return { thinking: '', content: raw }
+
+  let thinking = ''
+  let content = raw
+
+  for (const match of thinkMatch) {
+    const inner = match.replace(/<\/?think>/g, '').trim()
+    thinking += (thinking ? '\n' : '') + inner
+    content = content.replace(match, '')
+  }
+
+  // Also handle unclosed <think> at end of stream
+  const unclosedMatch = content.match(/<think>([\s\S]*)$/)
+  if (unclosedMatch) {
+    thinking += (thinking ? '\n' : '') + unclosedMatch[1].trim()
+    content = content.replace(unclosedMatch[0], '')
+  }
+
+  return { thinking: thinking.trim(), content: content.trim() }
+}
+
 // ------------------ Main Hook ------------------
 
 export const useOllama = () => {
@@ -365,12 +409,42 @@ export const useOllama = () => {
   }, [selectedModel, createThread])
 
   /**
-   * Generate a descriptive title from the first message
+   * Generate a descriptive title from the first message (simple fallback)
    */
   const generateThreadTitle = (message: string): string => {
     const title = message.substring(0, 50).trim()
     return title.length < message.length ? title + '...' : title
   }
+
+  /**
+   * AI-powered title generation using smallest available model.
+   * Ported from N.O.M.A.D. auto-title pattern (Apache 2.0, Crosstalk Solutions LLC).
+   * Runs in background — does not block chat flow.
+   */
+  const generateSmartTitle = useCallback(async (userMsg: string, assistantMsg: string, threadId: string): Promise<void> => {
+    if (!selectedModel) return
+    try {
+      const resp = await fetch('http://localhost:11434/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'qwen2.5:0.5b',
+          prompt: `Generate a concise title (under 50 chars) for this conversation:\nUser: ${userMsg.substring(0, 200)}\nAssistant: ${assistantMsg.substring(0, 200)}\n\nReturn ONLY the title text, nothing else:`,
+          stream: false,
+          options: { temperature: 0.3, num_predict: 30 },
+        }),
+      })
+      if (!resp.ok) return
+      const data = await resp.json()
+      const title = (data.response || '').trim().replace(/^["']|["']$/g, '').substring(0, 57)
+      if (title.length < 3) return
+
+      await (window as any).electron.invoke('chat:rename-thread', threadId, selectedModel, title)
+      await refreshCurrentThread()
+    } catch {
+      // Best-effort — silent fail is fine
+    }
+  }, [selectedModel, refreshCurrentThread])
 
   /**
    * Check if a model is ready to handle requests
@@ -692,6 +766,22 @@ When you use information from the context above, cite the source using [1], [2],
         reader.releaseLock()
       }
 
+      // Parse thinking content for reasoning models
+      if (isThinkingModel(selectedModel) && fullContent.includes('<think>')) {
+        const { thinking, content: cleanContent } = parseThinkingContent(fullContent)
+        if (thinking) {
+          setChatMessages((prev) => {
+            const msgs = [...prev]
+            const idx = msgs.findIndex((m) => m.id === assistantMessage.id)
+            if (idx !== -1) {
+              msgs[idx] = { ...msgs[idx], content: cleanContent, thinking }
+            }
+            return msgs
+          })
+          fullContent = cleanContent
+        }
+      }
+
       // Only save to backend if not aborted and has content
       if (!abortController.signal.aborted && hasReceivedContent && fullContent.trim()) {
         try {
@@ -706,12 +796,18 @@ When you use information from the context above, cite the source using [1], [2],
           console.error('Failed to save assistant message to backend:', backendError)
         }
 
+        // Auto-generate smart title on first exchange
+        const realMsgs = chatMessages.filter((m) => !m.id.includes('welcome'))
+        if (realMsgs.length <= 1 && workingThread) {
+          // First exchange — generate title in background (non-blocking)
+          generateSmartTitle(currentInput, fullContent, workingThread.id)
+        }
+
         // Save to chat history for the History page
         try {
           const title = currentInput.length > 40
             ? currentInput.substring(0, 40) + '...'
             : currentInput
-          const realMsgs = chatMessages.filter((m) => !m.id.includes('welcome'))
           addConversation({
             id: workingThread.id,
             title,

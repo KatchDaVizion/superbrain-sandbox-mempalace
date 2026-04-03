@@ -6,6 +6,11 @@ import { pathToFileURL } from 'url'
 import os from 'os'
 import { execSync, exec } from 'child_process'
 import crypto from 'crypto'
+import { ZimService } from '../zim/zimService'
+import { p2pSync } from '../p2p/p2pSyncService'
+import { downloadZim, cancelDownload, getInstalledPacks, KNOWLEDGE_PACKS } from '../zim/zimDownloader'
+import { runBenchmark, getCachedBenchmark, getTierInfo } from '../benchmark/benchmarkService'
+import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/leaderboardService'
 
 import {
   createThread,
@@ -107,7 +112,55 @@ ipcMain.handle('get-machine-info', async () => {
 let store: Store
 app.whenReady().then(() => {
   store = initStore('chat')
-  // console.log('User data path:', app.getPath('userData'));
+})
+
+// -----------------------
+// INIT ZIM SERVICE (Offline Knowledge Packs)
+// -----------------------
+const zimService = ZimService.getInstance()
+
+app.whenReady().then(async () => {
+  const zims = zimService.listZims()
+  if (zims.length > 0) {
+    try {
+      await zimService.start()
+      console.log(`[ZIM] Serving ${zims.length} knowledge pack(s) offline`)
+    } catch (err) {
+      console.error('[ZIM] Failed to start kiwix-serve:', (err as Error).message)
+    }
+  } else {
+    console.log('[ZIM] No knowledge packs installed — download via Settings')
+  }
+})
+
+// -----------------------
+// INIT P2P SYNC SERVICE
+// -----------------------
+app.whenReady().then(async () => {
+  // Start P2P sync service
+  p2pSync.start().catch(err => console.warn('[P2P] Start failed:', err))
+
+  // When peer sends us a chunk — ingest into local Qdrant automatically
+  p2pSync.on('new-chunk', async (chunk: any) => {
+    try {
+      await ingestTextContent(chunk.content, chunk.title || 'P2P Chunk', {
+        tags: ['p2p-received', 'peer-knowledge'],
+        source: chunk.peer_url || 'unknown-peer'
+      })
+      console.log(`[P2P→Qdrant] Ingested: ${chunk.title}`)
+    } catch (err) {
+      console.warn('[P2P→Qdrant] Failed:', (err as Error).message)
+    }
+  })
+
+  p2pSync.on('ready', ({ nodeId, url }: { nodeId: string, url: string }) => {
+    console.log(`[P2P] Ready — ${nodeId} at ${url}`)
+  })
+})
+
+app.on('before-quit', async () => {
+  await p2pSync.stop()
+  await zimService.stop()
 })
 
 // -----------------------
@@ -718,44 +771,58 @@ function registerResourcesProtocol() {
  * Handles the 'rag:ingest:raw' channel for URL or pasted text ingestion.
  * This listener is called from window.RAGApi.ingestRawData() in the Renderer process.
  */
-ipcMain.handle('rag:ingest:file', async (event, filePath: string, tags: string[] = [], config: any = {}) => {
-  try {
-    // Merge tags into config if provided
-    const ingestConfig = {
-      ...config,
-      tags: tags.length > 0 ? tags : config.tags,
-    }
+/**
+ * Background ingestion with progress events.
+ * Returns { jobId } immediately; sends progress events to renderer as processing continues.
+ * Pattern inspired by N.O.M.A.D. BullMQ job queue (Apache 2.0, Crosstalk Solutions LLC).
+ */
+const activeIngestionJobs = new Map<string, { status: string; progress: number; error?: string }>()
 
-    const result = await ingestFilePath(filePath, ingestConfig)
-    return result
-  } catch (error) {
-    console.error('[IPC Main] Error handling ingest:file:', error)
-    throw new Error(`Main process ingestion failed: ${(error as Error).message}`)
-  }
+function processInBackground(
+  jobId: string,
+  sender: Electron.WebContents,
+  fn: () => Promise<any>
+) {
+  activeIngestionJobs.set(jobId, { status: 'processing', progress: 10 })
+  sender.send('rag:ingest:progress', { jobId, progress: 10, status: 'processing' })
+
+  fn()
+    .then((result) => {
+      activeIngestionJobs.set(jobId, { status: 'completed', progress: 100 })
+      sender.send('rag:ingest:progress', { jobId, progress: 100, status: 'completed', result })
+    })
+    .catch((error) => {
+      activeIngestionJobs.set(jobId, { status: 'failed', progress: 0, error: (error as Error).message })
+      sender.send('rag:ingest:progress', { jobId, progress: 0, status: 'failed', error: (error as Error).message })
+    })
+}
+
+ipcMain.handle('rag:ingest:file', async (event, filePath: string, tags: string[] = [], config: any = {}) => {
+  const jobId = crypto.randomUUID()
+  const ingestConfig = { ...config, tags: tags.length > 0 ? tags : config.tags }
+
+  processInBackground(jobId, event.sender, () => ingestFilePath(filePath, ingestConfig))
+  return { jobId }
 })
 
 ipcMain.handle('rag:ingest:url', async (event, content: string, url: string, config: any = {}) => {
-  try {
-    const result = await ingestURLContent(url, config)
-    return result
-  } catch (error) {
-    console.error('[IPC Main] Error handling ingest:url:', error)
-    throw new Error(`Main process URL ingestion failed: ${(error as Error).message}`)
-  }
+  const jobId = crypto.randomUUID()
+  processInBackground(jobId, event.sender, () => ingestURLContent(url, config))
+  return { jobId }
 })
 
 ipcMain.handle(
   'rag:ingest:text',
   async (event, content: string, title: string = 'Pasted_Text_Snippet', config: any = {}) => {
-    try {
-      const result = await ingestTextContent(content, title, config)
-      return result
-    } catch (error) {
-      console.error('[IPC Main] Error handling ingest:text:', error)
-      throw new Error(`Main process text ingestion failed: ${(error as Error).message}`)
-    }
+    const jobId = crypto.randomUUID()
+    processInBackground(jobId, event.sender, () => ingestTextContent(content, title, config))
+    return { jobId }
   }
 )
+
+ipcMain.handle('rag:ingest:job-status', (_event, jobId: string) => {
+  return activeIngestionJobs.get(jobId) || { status: 'unknown', progress: 0 }
+})
 
 ipcMain.handle('rag:qdrant:status', async () => {
   try {
@@ -777,3 +844,219 @@ ipcMain.handle('rag:qdrant:listCollections', async () => {
     return []
   }
 })
+
+// -----------------------
+// ZIM (Offline Knowledge Packs)
+// -----------------------
+
+ipcMain.handle('zim:search', async (_event, query: string, limit = 5) => {
+  return zimService.search(query, limit)
+})
+
+ipcMain.handle('zim:list', () => {
+  return zimService.listZims()
+})
+
+ipcMain.handle('zim:health', async () => {
+  return zimService.healthCheck()
+})
+
+ipcMain.handle('zim:status', async () => {
+  return zimService.getStatus()
+})
+
+ipcMain.handle('zim:disk-usage', () => {
+  return zimService.getDiskUsage()
+})
+
+ipcMain.handle('zim:packs', () => {
+  return getInstalledPacks()
+})
+
+ipcMain.handle('zim:packs:catalog', () => {
+  return KNOWLEDGE_PACKS
+})
+
+ipcMain.handle('zim:download', async (event, packId: string) => {
+  try {
+    await downloadZim(packId, event.sender)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+ipcMain.handle('zim:download:cancel', (_event, packId: string) => {
+  return { cancelled: cancelDownload(packId) }
+})
+
+ipcMain.handle('zim:remove', async (_event, filename: string) => {
+  const removed = await zimService.removeZim(filename)
+  return { success: removed }
+})
+
+// -----------------------
+// P2P SYNC IPC HANDLERS
+// -----------------------
+
+ipcMain.handle('p2p:status', () => ({
+  nodeId: p2pSync.getNodeId(),
+  myUrl: p2pSync.getMyUrl(),
+  peerCount: p2pSync.getPeerCount(),
+  onlinePeers: p2pSync.getOnlinePeerCount(),
+  localChunks: p2pSync.getLocalChunks().length,
+  receivedChunks: p2pSync.getReceivedChunks().length,
+}))
+
+ipcMain.handle('p2p:peers', () => p2pSync.getPeers())
+
+ipcMain.handle('p2p:share', async (_event: any, content: string, title: string) => {
+  const id = await p2pSync.shareChunk(content, title)
+  return { success: true, chunk_id: id }
+})
+
+ipcMain.handle('p2p:sync-now', async () => {
+  await p2pSync.refreshPeers()
+  await p2pSync.syncFromAllPeers()
+  return {
+    peers: p2pSync.getPeerCount(),
+    received: p2pSync.getReceivedChunks().length
+  }
+})
+
+ipcMain.handle('p2p:search', (_event: any, query: string) => {
+  return p2pSync.searchChunks(query, 5)
+})
+
+// -----------------------
+// BENCHMARK (Hardware Score + TAO Estimator)
+// -----------------------
+
+ipcMain.handle('benchmark:run', async (event) => {
+  const result = await runBenchmark((progress) => {
+    event.sender.send('benchmark:progress', progress)
+  })
+  return result
+})
+
+ipcMain.handle('benchmark:submit', async (_event, result) => {
+  return submitScore(result)
+})
+
+ipcMain.handle('benchmark:leaderboard', async () => {
+  return fetchLeaderboard(100)
+})
+
+ipcMain.handle('benchmark:rank', async (_event, userScore: number) => {
+  const lb = await fetchLeaderboard(100)
+  return calculateUserRank(userScore, lb)
+})
+
+ipcMain.handle('benchmark:cached', () => {
+  return getCachedBenchmark()
+})
+
+ipcMain.handle('benchmark:tiers', () => {
+  return getTierInfo()
+})
+
+// -----------------------
+// SHARE QDRANT CHUNKS TO SN442 NETWORK
+// -----------------------
+
+const SN442_SEED = 'http://46.225.114.202:8400'
+
+/**
+ * Share already-ingested Qdrant documents to the SN442 network.
+ * Fetches chunks by doc_id from Qdrant, POSTs each to Frankfurt /knowledge/add.
+ * Rate-limited: 1 request per 800ms. Failures are logged but don't stop the pipeline.
+ */
+ipcMain.handle(
+  'rag:share-chunks-to-network',
+  async (
+    event,
+    payload: { docId: string; collectionName?: string }
+  ): Promise<{ submitted: number; failed: number; total: number }> => {
+    const collection = payload.collectionName || 'sb_docs_v1_ollama'
+    const qdrantUrl = 'http://localhost:6333'
+
+    let submitted = 0
+    let failed = 0
+
+    try {
+      // Scroll through Qdrant to find chunks with matching doc_id
+      const scrollResp = await fetch(`${qdrantUrl}/collections/${collection}/points/scroll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filter: {
+            must: [{ key: 'doc_id', match: { value: payload.docId } }],
+          },
+          limit: 200,
+          with_payload: true,
+          with_vector: false,
+        }),
+      })
+
+      if (!scrollResp.ok) {
+        throw new Error(`Qdrant scroll failed: ${scrollResp.status}`)
+      }
+
+      const data = await scrollResp.json() as any
+      const points = data?.result?.points || []
+
+      if (points.length === 0) {
+        return { submitted: 0, failed: 0, total: 0 }
+      }
+
+      console.log(`[ShareToNetwork] Found ${points.length} chunks for doc_id=${payload.docId}`)
+
+      for (let i = 0; i < points.length; i++) {
+        const point = points[i]
+        const text = point.payload?.text || point.payload?.pageContent || ''
+        const title = point.payload?.fileName || point.payload?.source || 'Shared Document'
+
+        if (!text || text.length < 20) {
+          failed++
+          continue
+        }
+
+        try {
+          await fetch(`${SN442_SEED}/knowledge/share`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              content: text.substring(0, 5000),
+              title: typeof title === 'string' ? title : 'Shared Document',
+              source: 'superbrain-desktop-rag',
+            }),
+            signal: AbortSignal.timeout(5000),
+          })
+          submitted++
+        } catch {
+          failed++
+        }
+
+        // Progress event
+        event.sender.send('rag:share-progress', {
+          docId: payload.docId,
+          submitted,
+          failed,
+          total: points.length,
+          progress: Math.round(((i + 1) / points.length) * 100),
+        })
+
+        // Rate limit: 800ms between requests
+        if (i < points.length - 1) {
+          await new Promise((r) => setTimeout(r, 800))
+        }
+      }
+
+      console.log(`[ShareToNetwork] Done: ${submitted} submitted, ${failed} failed out of ${points.length}`)
+      return { submitted, failed, total: points.length }
+    } catch (error) {
+      console.error('[ShareToNetwork] Error:', (error as Error).message)
+      return { submitted, failed, total: 0 }
+    }
+  }
+)
