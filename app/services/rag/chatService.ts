@@ -7,6 +7,7 @@ import { hybridSearch } from './hybridSearch'
 import { BaseMessage, HumanMessage, SystemMessage } from '@langchain/core/messages'
 import axios from 'axios'
 import { ZimService, type ZimResult } from '../../../lib/zim/zimService'
+import { mempalace, type PalaceResult } from '../../../lib/mempalace'
 
 export interface ChatResponse {
   answer: string
@@ -102,6 +103,39 @@ async function rewriteQuery(
   }
 }
 
+// ── MemPalace Context (Layer 0 — cross-session memory) ───────────────────
+
+/**
+ * Search MemPalace for past-session context relevant to the current query.
+ * Layer 0 in the 5-layer knowledge hierarchy:
+ *   MemPalace → ZIM → Qdrant → SN442 → Ollama
+ *
+ * Returns a formatted context string ready to inject into the system prompt.
+ * Graceful: returns empty on any failure (mempalace not installed, palace
+ * empty, subprocess timeout, parse error).
+ *
+ * Subprocess cost: ~500-800ms cold, ~200-400ms warm. Acceptable when
+ * running before generation, not on every keystroke.
+ */
+async function getPalaceContext(query: string): Promise<{ context: string; results: PalaceResult[] }> {
+  try {
+    const results = await mempalace.search(query, 3)
+    if (!results || results.length === 0) return { context: '', results: [] }
+
+    const context =
+      '[Memory Palace — Past Sessions]\n' +
+      results
+        .map((r) => `${r.title} (${r.wing}/${r.room}, sim=${r.similarity}):\n${r.snippet}`)
+        .join('\n\n')
+
+    console.log(`[Palace] ${results.length} past-session result(s) for: "${query.substring(0, 50)}"`)
+    return { context, results }
+  } catch {
+    // Best-effort — never crash chat if mempalace is unavailable.
+    return { context: '', results: [] }
+  }
+}
+
 // ── ZIM Context (offline Wikipedia / knowledge packs) ─────────────────────
 
 /**
@@ -130,7 +164,7 @@ async function getZimContext(query: string): Promise<{ context: string; results:
 
 // ── SN442 Network fallback ────────────────────────────────────────────────
 
-const SN442_NODE = 'http://46.225.114.202:8400'
+const SN442_NODE = import.meta.env.VITE_SB_API_URL || 'http://46.225.114.202:8400'
 
 /**
  * Query SN442 network for validated knowledge chunks.
@@ -182,6 +216,11 @@ export async function* streamChatWithRAG(
 
   // 0.5. Query rewriting — produce standalone searchable query
   const searchQuery = await rewriteQuery(query, options.history || [], baseUrl)
+
+  // ━━━ LAYER 0: MEMPALACE (cross-session memory — verbatim past exchanges) ━
+  const palaceData = await getPalaceContext(searchQuery)
+  const palaceResultCount = palaceData.results.length
+  console.log(`[chat] Palace: ${palaceResultCount > 0 ? `${palaceResultCount} past-session result(s)` : 'skipped (empty palace or unavailable)'}`)
 
   // ━━━ LAYER 1: ZIM (offline Wikipedia — instant, zero internet) ━━━━━━━
   const zimData = await getZimContext(searchQuery)
@@ -243,7 +282,22 @@ export async function* streamChatWithRAG(
   let tokenEstimate = 0
   const charBudget = budget.maxTokens * 4 // ~4 chars per token
 
-  // ZIM context goes FIRST (offline knowledge is primary)
+  // Layer 0 — MemPalace past-session memory goes FIRST (highest priority)
+  if (palaceData.context) {
+    tokenEstimate += palaceData.context.length
+    contextParts.push(palaceData.context)
+
+    palaceData.results.forEach((r, i) => {
+      const sourceId = `[P${i + 1}]`
+      sourceMap.set(sourceId, {
+        content: r.snippet,
+        source: `Memory Palace: ${r.title} (${r.wing}/${r.room})`,
+        type: 'palace',
+      })
+    })
+  }
+
+  // ZIM context goes next (offline knowledge is primary among external sources)
   if (zimData.context) {
     tokenEstimate += zimData.context.length
     contextParts.push(zimData.context)
@@ -302,12 +356,19 @@ export async function* streamChatWithRAG(
   })
 
   const systemPrompt = context
-    ? `You are a helpful assistant. Use the following context to answer accurately.
+    ? `You are a helpful assistant with access to multiple knowledge sources. Use the following context to answer accurately.
 
   Context:
   ${context}
 
-  IMPORTANT: Cite your sources using [1], [2], [W1], [N1] etc. notation.
+  Source labels:
+    [P1], [P2] — Memory Palace (verbatim past-session memory)
+    [W1], [W2] — Wikipedia (offline knowledge packs)
+    [1], [2]   — Your Documents (RAG knowledge base)
+    [N1], [N2] — SN442 Network (peer-validated)
+
+  IMPORTANT: Cite your sources using the bracket notation above.
+  Past-session memory ([P]) is the highest-priority context — use it when the user references prior conversations.
   If context doesn't contain relevant information, say so clearly.`
     : 'You are a helpful assistant. Answer the user\'s question to the best of your ability.'
 
@@ -336,8 +397,8 @@ export async function* streamChatWithRAG(
 
 function extractSourcesFromResponse(response: string, sourceMap: Map<string, SourceReference>): SourceReference[] {
   const sources: SourceReference[] = []
-  // Match [1], [2], [W1], [W2], [N1] etc.
-  const citationRegex = /\[([WN]?\d+)\]/g
+  // Match [1], [2], [W1], [W2], [N1], [P1] etc.
+  const citationRegex = /\[([WNP]?\d+)\]/g
   const matches = response.matchAll(citationRegex)
 
   for (const match of matches) {
@@ -348,9 +409,12 @@ function extractSourcesFromResponse(response: string, sourceMap: Map<string, Sou
     }
   }
 
-  // Also include all ZIM/network sources if context was provided but not explicitly cited
+  // Also include all palace/ZIM/network sources if context was provided but not explicitly cited
   for (const [, ref] of sourceMap) {
-    if ((ref.type === 'zim' || ref.type === 'network') && !sources.some((s) => s.source === ref.source)) {
+    if (
+      (ref.type === 'palace' || ref.type === 'zim' || ref.type === 'network') &&
+      !sources.some((s) => s.source === ref.source)
+    ) {
       sources.push(ref)
     }
   }

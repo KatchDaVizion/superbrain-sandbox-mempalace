@@ -228,7 +228,7 @@ export class ZimService {
     // Pattern 1: Extract from search result entries
     // kiwix-serve wraps results in elements with article links
     const entryPattern = /<a[^>]+href="(\/[^"]+)"[^>]*>([^<]+)<\/a>/g
-    const snippetPattern = /<p[^>]*>([^<]{10,500})<\/p>/g
+    const snippetPattern = /<(?:p|cite)[^>]*>([^<]{10,500})<\/(?:p|cite)>/g
 
     const links: Array<{ url: string; title: string }> = []
     let match: RegExpExecArray | null

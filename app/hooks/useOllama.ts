@@ -172,6 +172,10 @@ export const useOllama = () => {
   const [docCount, setDocCount] = useState<number>(0)
   const [qdrantConnected, setQdrantConnected] = useState<boolean>(false)
 
+  // Source toggles for unified chat (all default ON — user can flip any off)
+  const [useWikipedia, setUseWikipedia] = useState<boolean>(true)
+  const [usePalaceMemory, setUsePalaceMemory] = useState<boolean>(true)
+
   // Chat thread management via external hook
   const chatManager = useChatManager(selectedModel)
   const { currentThread, createThread, refreshCurrentThread, isLoadingThread } = chatManager
@@ -181,6 +185,11 @@ export const useOllama = () => {
 
   const abortControllerRef = useRef<AbortController | null>(null)
   const [canStop, setCanStop] = useState<boolean>(false)
+
+  // MemPalace wake-up text — fetched once on mount and prepended to every
+  // system prompt. Stored in a ref so changes don't trigger re-renders.
+  // Empty string is a valid fallback (mempalace unavailable).
+  const palaceWakeupRef = useRef<string>('')
 
   // Predefined creativity levels with user-friendly labels
   const creativityLevels: CreativityLevel[] = [
@@ -557,20 +566,26 @@ export const useOllama = () => {
   /**
    * Build a system message with RAG context
    */
-  const buildSystemMessage = useCallback((ragDocs: RetrievedDocWithScore[]): string | null => {
-    if (ragDocs.length === 0) return null
+  const buildSystemMessage = useCallback((ragDocs: RetrievedDocWithScore[], zimContext?: string): string | null => {
+    if (ragDocs.length === 0 && !zimContext) return null
 
-    const contextParts = ragDocs.map((doc, idx) => {
+    const parts: string[] = []
+
+    if (zimContext) {
+      parts.push(`[Wikipedia Offline]\n${zimContext}`)
+    }
+
+    ragDocs.forEach((doc, idx) => {
       const source = doc.metadata?.source || doc.metadata?.fileName || 'Unknown'
-      return `[${idx + 1}] (Source: ${source})\n${doc.pageContent.substring(0, 500)}`
+      parts.push(`[${idx + 1}] (Source: ${source})\n${doc.pageContent.substring(0, 500)}`)
     })
 
-    return `You are a helpful AI assistant. Use the following knowledge base documents to inform your answers when relevant. If the context is not relevant to the question, you may ignore it and answer from your general knowledge.
+    return `You are a helpful AI assistant. Use the following context to inform your answers when relevant. Prefer Wikipedia facts for factual accuracy. If the context is not relevant, answer from your general knowledge.
 
-Knowledge Base Context:
-${contextParts.join('\n\n')}
+Context:
+${parts.join('\n\n')}
 
-When you use information from the context above, cite the source using [1], [2], etc. notation. If you do not use the context, no citation is needed.`
+When you use information from the context above, cite the source using [1], [2], [W] etc. notation. If you do not use the context, no citation is needed.`
   }, [])
 
   /**
@@ -586,6 +601,27 @@ When you use information from the context above, cite the source using [1], [2],
     // Store current input and clear input field immediately
     const currentInput = inputMessage.trim()
     setInputMessage('')
+
+    // ── MemPalace auto-save helper ─────────────────────────────────────────
+    // Fires after a completed exchange (any of the 3 finalization branches:
+    // SN442 / ZIM extractive / Ollama streaming). Fire-and-forget — never
+    // throws, never blocks. Gated on [🧠 Memory] toggle. Skips trivial
+    // replies under 100 chars. Lands the drawer in superbrain/conversations
+    // so the next session can recall this turn via Layer 0 wake-up.
+    const autoSaveToPalace = (assistantText: string): void => {
+      if (!usePalaceMemory) return
+      if (!assistantText || assistantText.trim().length < 100) return
+      try {
+        const dateStr = new Date().toISOString().split('T')[0]
+        const drawerContent = `${dateStr} conversation:\n\nUser: ${currentInput}\n\nAssistant: ${assistantText}`
+        ;(window as any).electron
+          .invoke('mempalace:add-drawer', drawerContent, 'superbrain', 'conversations')
+          .then(() => console.log('[useOllama] Palace autosave OK'))
+          .catch((e: any) => console.warn('[useOllama] Palace autosave failed:', e?.message))
+      } catch {
+        // never let palace failures break chat
+      }
+    }
 
     // Create user message object
     const userMessage: ChatMessage = {
@@ -638,9 +674,183 @@ When you use information from the context above, cite the source using [1], [2],
         console.error('Failed to save user message to backend:', backendError)
       }
 
-      // --- RAG Context Injection (best-effort) ---
+      // --- SN442 Network Knowledge — bypass Ollama entirely when toggle is ON ---
+      if (useNetworkKnowledge) {
+        try {
+          const netData = await (window as any).electron.invoke('superbrain:network:query', currentInput, {})
+          const answer = netData?.text || netData?.answer || ''
+
+          if (answer && answer !== 'Network unreachable') {
+            const networkSource: RAGSource = {
+              content: answer.substring(0, 300),
+              source: 'SN442 Network | Bittensor Validated',
+              score: 1.0,
+              metadata: { provider: 'sn442', type: 'network' },
+            }
+
+            const assistantMessage: ChatMessage = {
+              id: `${Date.now()}-assistant`,
+              role: 'assistant',
+              content: answer,
+              timestamp: new Date(),
+              sources: [networkSource],
+            }
+
+            setChatMessages((prev) => [...prev, assistantMessage])
+            setRagSources([networkSource])
+
+            // Save to backend
+            try {
+              await (window as any).electron.invoke('chat:append-message', {
+                modelId: selectedModel,
+                threadId: workingThread.id,
+                message: { role: 'assistant', content: answer },
+              })
+              await refreshCurrentThread()
+            } catch (backendError) {
+              console.error('Failed to save network message to backend:', backendError)
+            }
+
+            // Auto-generate smart title on first exchange
+            const realMsgs = chatMessages.filter((m) => !m.id.includes('welcome'))
+            if (realMsgs.length <= 1 && workingThread) {
+              generateSmartTitle(currentInput, answer, workingThread.id)
+            }
+
+            // Save to chat history
+            try {
+              const title = currentInput.length > 40
+                ? currentInput.substring(0, 40) + '...'
+                : currentInput
+              addConversation({
+                id: workingThread.id,
+                title,
+                model: selectedModel,
+                createdAt: new Date().toISOString(),
+                messageCount: (chatMessages.filter((m) => !m.id.includes('welcome')).length) + 2,
+                lastMessage: answer.length > 80 ? answer.substring(0, 80) + '...' : answer,
+              })
+            } catch (historyError) {
+              console.error('Failed to save to chat history:', historyError)
+            }
+
+            // Cross-session memory: auto-file this exchange to MemPalace
+            autoSaveToPalace(answer)
+
+            return // Skip Ollama entirely
+          }
+        } catch (netError) {
+          console.warn('SN442 network query failed, falling back to Ollama:', netError)
+        }
+      }
+
+      // --- ZIM Wikipedia Context (Layer 1 — offline, instant) ---
+      // Gated on the [📚 Wikipedia] toggle. When OFF the layer is fully skipped.
+      let zimContext = ''
+      let zimResults: any[] | null = null
+      if (useWikipedia) {
+        try {
+          zimResults = await (window as any).electron.invoke('zim:search', currentInput, 2)
+          if (zimResults && zimResults.length > 0) {
+            zimContext = zimResults
+              .map((r: any) => `[Wikipedia: ${r.title}] ${r.snippet}`)
+              .filter((s: string) => s.length > 20)
+              .join('\n')
+          }
+        } catch {}
+      }
+
+      // --- MemPalace Per-Query Context (Layer 0 — cross-session memory) ---
+      // Gated on the [🧠 Memory] toggle. Returns up to 3 verbatim past-session
+      // hits relevant to the current query. Wakeup identity is separate (below).
+      let palaceContext = ''
+      if (usePalaceMemory) {
+        try {
+          const palaceResults = await (window as any).electron.invoke('mempalace:search', currentInput, 3)
+          if (palaceResults && palaceResults.length > 0) {
+            palaceContext = '[Memory Palace — Past Sessions]\n' +
+              palaceResults
+                .map((r: any) => `${r.title} (${r.room}, sim=${r.similarity}):\n${r.snippet}`)
+                .join('\n\n')
+            console.log(`[useOllama] Palace: ${palaceResults.length} past-session result(s)`)
+          }
+        } catch {}
+      }
+
+      // --- ZIM Extractive QA — factual questions skip Ollama ---
+      const FACTUAL_PATTERNS = /^(who|what|when|where|how many|is|are|was|were|did|does|which)/i
+
+      if (!useNetworkKnowledge && FACTUAL_PATTERNS.test(currentInput.trim()) && zimResults && zimResults.length > 0) {
+        const keywords = currentInput.toLowerCase().split(' ').filter((w: string) => w.length > 3)
+        let bestSnippet = ''
+        let bestTitle = ''
+        let bestScore = 0
+
+        for (const r of zimResults) {
+          const snippet = r.snippet || r.content || ''
+          const score = keywords.filter((k: string) => snippet.toLowerCase().includes(k)).length
+          if (score > bestScore && snippet.length > 30) {
+            bestScore = score
+            bestSnippet = snippet
+            bestTitle = r.title || 'Wikipedia'
+          }
+        }
+
+        if (bestSnippet && bestScore >= 1) {
+          const extractiveAnswer = `${bestSnippet}\n\n[Source: Wikipedia Offline — ${bestTitle}]`
+
+          const assistantMessage: ChatMessage = {
+            id: `${Date.now()}-assistant`,
+            role: 'assistant',
+            content: extractiveAnswer,
+            timestamp: new Date(),
+            sources: [{ content: bestSnippet, source: `Wikipedia: ${bestTitle}`, score: 1.0, metadata: { type: 'zim' } }],
+          }
+
+          setChatMessages((prev) => [...prev, assistantMessage])
+          setRagSources(assistantMessage.sources || [])
+
+          try {
+            await (window as any).electron.invoke('chat:append-message', {
+              modelId: selectedModel,
+              threadId: workingThread!.id,
+              message: { role: 'assistant', content: extractiveAnswer },
+            })
+            await refreshCurrentThread()
+          } catch {}
+
+          // Auto-generate smart title on first exchange
+          const realMsgs = chatMessages.filter((m) => !m.id.includes('welcome'))
+          if (realMsgs.length <= 1 && workingThread) {
+            generateSmartTitle(currentInput, extractiveAnswer, workingThread.id)
+          }
+
+          // Save to chat history
+          try {
+            const title = currentInput.length > 40
+              ? currentInput.substring(0, 40) + '...'
+              : currentInput
+            addConversation({
+              id: workingThread!.id,
+              title,
+              model: selectedModel,
+              createdAt: new Date().toISOString(),
+              messageCount: (chatMessages.filter((m) => !m.id.includes('welcome')).length) + 2,
+              lastMessage: extractiveAnswer.length > 80 ? extractiveAnswer.substring(0, 80) + '...' : extractiveAnswer,
+            })
+          } catch {}
+
+          // Cross-session memory: auto-file this extractive QA exchange
+          autoSaveToPalace(extractiveAnswer)
+
+          return // Skip Ollama
+        }
+      }
+
+      // --- RAG Context Injection (best-effort, gated on [📄 My Docs] toggle) ---
+      // searchRAGContext already checks useRAG internally — returns [] when off.
       const ragDocs = await searchRAGContext(currentInput)
-      const systemPrompt = buildSystemMessage(ragDocs)
+      const baseSystemPrompt = buildSystemMessage(ragDocs, zimContext)
 
       // Convert RAG docs to sources for display
       const messageSources: RAGSource[] = ragDocs.map((doc) => ({
@@ -655,9 +865,29 @@ When you use information from the context above, cite the source using [1], [2],
 
       // Build the messages array for Ollama
       const ollamaMessages: Array<{ role: string; content: string }> = []
-      if (systemPrompt) {
-        ollamaMessages.push({ role: 'system', content: systemPrompt })
+
+      // Compose final system prompt from all enabled layers, in priority order:
+      //   1. MemPalace wake-up identity (always-loaded L0+L1, gated on [🧠 Memory])
+      //   2. MemPalace per-query search results (palaceContext, gated on [🧠 Memory])
+      //   3. ZIM Wikipedia + Qdrant RAG combined (baseSystemPrompt, gated above)
+      const palaceWakeup = usePalaceMemory ? palaceWakeupRef.current : ''
+      const systemParts: string[] = []
+      if (palaceWakeup) systemParts.push(palaceWakeup)
+      if (palaceContext) systemParts.push(palaceContext)
+      if (baseSystemPrompt) systemParts.push(baseSystemPrompt)
+      const fullSystem = systemParts.join('\n\n---\n\n')
+
+      if (fullSystem) {
+        // Diagnostic: prove the injected context is actually reaching Ollama
+        console.log('[useOllama] System prompt preview:', fullSystem.substring(0, 200))
+        console.log(`[useOllama] System prompt total: ${fullSystem.length} chars (~${Math.round(fullSystem.length / 4)} tokens) | layers: wakeup=${!!palaceWakeup} palace=${!!palaceContext} zim=${!!zimContext} rag=${ragDocs.length}`)
+        ollamaMessages.push({ role: 'system', content: fullSystem })
       }
+
+      // Within-session memory: ALL prior non-welcome messages from this thread
+      // are forwarded to Ollama (no slice limit). The model sees the full
+      // conversation history every turn — combined with palace wakeup that's
+      // both short-term and cross-session memory.
       chatMessages.filter(msg => !msg.id.includes('welcome') && msg.content).forEach(msg => ollamaMessages.push({ role: msg.role, content: msg.content }));
       ollamaMessages.push({ role: 'user', content: currentInput })
 
@@ -819,6 +1049,9 @@ When you use information from the context above, cite the source using [1], [2],
         } catch (historyError) {
           console.error('Failed to save to chat history:', historyError)
         }
+
+        // Cross-session memory: auto-file the completed Ollama exchange
+        autoSaveToPalace(fullContent)
       }
     } catch (error: any) {
       // Handle different types of errors
@@ -857,6 +1090,9 @@ When you use information from the context above, cite the source using [1], [2],
     searchRAGContext,
     buildSystemMessage,
     addConversation,
+    useNetworkKnowledge,
+    useWikipedia,
+    usePalaceMemory,
   ])
 
   /**
@@ -891,6 +1127,32 @@ When you use information from the context above, cite the source using [1], [2],
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
+    }
+  }, [])
+
+  // ── MemPalace wake-up — load once on mount, silent failure ──────────────
+  // Calls the mempalace:wakeup IPC handler exactly once when the chat hook
+  // mounts, stores the L0 identity + L1 essential story text in a ref, then
+  // prepends it to the system prompt of every outgoing message. The ref
+  // pattern keeps this off the React render path — no UI flicker.
+  useEffect(() => {
+    let cancelled = false
+    const loadWakeup = async () => {
+      try {
+        const text = await (window as any).electron.invoke('mempalace:wakeup', 'superbrain')
+        if (!cancelled && typeof text === 'string') {
+          palaceWakeupRef.current = text
+          if (text.length > 0) {
+            console.log(`[useOllama] Palace wake-up loaded: ~${Math.round(text.length / 4)} tokens`)
+          }
+        }
+      } catch {
+        // mempalace unavailable — chat continues normally
+      }
+    }
+    loadWakeup()
+    return () => {
+      cancelled = true
     }
   }, [])
 
@@ -944,6 +1206,10 @@ When you use information from the context above, cite the source using [1], [2],
     setUseRAG,
     useNetworkKnowledge,
     setUseNetworkKnowledge,
+    useWikipedia,
+    setUseWikipedia,
+    usePalaceMemory,
+    setUsePalaceMemory,
     docCount,
     qdrantConnected,
   }

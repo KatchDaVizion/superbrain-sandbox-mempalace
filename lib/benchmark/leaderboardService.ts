@@ -107,11 +107,46 @@ export async function fetchLeaderboard(limit = 100): Promise<LeaderboardData> {
       timeout: FETCH_TIMEOUT,
     })
 
+    // ── BUGFIX (2026-04-08) ────────────────────────────────────────────────
+    // The API returns a bare JSON array `[{...}, {...}]`. Previous code did
+    // `resp.data?.entries || resp.data || []`. Arrays in JS have a built-in
+    // `.entries` METHOD (a function reference, truthy), so the OR-chain
+    // resolved to that function — and `.length` on a function returns the
+    // declared param count (0). Result: leaderboard always showed 0 entries
+    // even though the server was returning data.
+    //
+    // Fix: explicitly check `Array.isArray` first. Then fall back to a
+    // wrapped { entries: [...] } shape if the API ever changes.
+    const raw = resp.data
+    const entries: LeaderboardEntry[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.entries)
+        ? raw.entries
+        : []
+    const totalMiners = Array.isArray(raw)
+      ? raw.length
+      : (typeof raw?.totalMiners === 'number' ? raw.totalMiners : entries.length)
+
+    // Compute avgScore + tierDistribution client-side since the bare-array
+    // API doesn't include them.
+    const validScores = entries.filter((e) => typeof e?.score === 'number').map((e) => e.score)
+    const avgScore = typeof raw?.avgScore === 'number'
+      ? raw.avgScore
+      : validScores.length > 0
+        ? validScores.reduce((a, b) => a + b, 0) / validScores.length
+        : 0
+    const tierDistribution: Record<string, number> = raw?.tierDistribution && typeof raw.tierDistribution === 'object'
+      ? raw.tierDistribution
+      : entries.reduce((acc, e) => {
+          if (e?.tier) acc[e.tier] = (acc[e.tier] || 0) + 1
+          return acc
+        }, {} as Record<string, number>)
+
     const data: LeaderboardData = {
-      entries: resp.data?.entries || resp.data || [],
-      totalMiners: resp.data?.totalMiners || resp.data?.length || 0,
-      avgScore: resp.data?.avgScore || 0,
-      tierDistribution: resp.data?.tierDistribution || {},
+      entries,
+      totalMiners,
+      avgScore,
+      tierDistribution,
       fetchedAt: new Date().toISOString(),
     }
 

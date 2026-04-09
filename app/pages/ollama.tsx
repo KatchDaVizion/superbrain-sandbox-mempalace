@@ -1,8 +1,6 @@
-import { Brain, Sparkles, Search, Filter, Globe } from 'lucide-react'
+import { Brain, Search, Filter, Globe, BookOpen, Database } from 'lucide-react'
 import { HoverCard, HoverCardTrigger } from '../components/ui/hover-card'
 import { useOllama } from '../hooks/useOllama'
-import { Slider } from '../components/ui/slider'
-import { Switch } from '../components/ui/switch'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTheme } from 'next-themes'
 import ChatContainer from '../components/chat/chatContainer'
@@ -49,6 +47,10 @@ const OllamaPage = () => {
     setUseRAG,
     useNetworkKnowledge,
     setUseNetworkKnowledge,
+    useWikipedia,
+    setUseWikipedia,
+    usePalaceMemory,
+    setUsePalaceMemory,
     docCount,
     qdrantConnected,
     // Chat mode
@@ -355,95 +357,66 @@ const OllamaPage = () => {
               )}
             </div>
 
-            {/* Creativity Control + Network Knowledge Toggle */}
-            <div className="space-y-6">
-              {/* Creativity Control */}
-              <div
-                className={`backdrop-blur rounded-2xl border p-5 ${
-                  resolvedTheme === 'dark' ? 'bg-card/50 border-purple-500/30' : 'bg-white/80 border-purple-200 shadow-sm'
-                }`}
-              >
-                <h3
-                  className={`text-lg font-semibold mb-4 flex items-center ${
-                    resolvedTheme === 'dark' ? 'text-purple-300' : 'text-purple-700'
+            {/* Source toggle pills — 4 unified knowledge sources for the chat */}
+            <div
+              className={`backdrop-blur rounded-2xl border p-4 ${
+                resolvedTheme === 'dark' ? 'bg-card/50 border-blue-500/20' : 'bg-white/80 border-blue-200 shadow-sm'
+              }`}
+            >
+              <p className={`text-xs font-medium mb-3 ${resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'}`}>
+                Knowledge sources — click any pill to toggle on/off
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <SourcePill
+                  label="Memory"
+                  icon={Brain}
+                  emoji="🧠"
+                  active={usePalaceMemory}
+                  onToggle={() => setUsePalaceMemory(!usePalaceMemory)}
+                  hint="Past sessions via MemPalace"
+                  isDark={resolvedTheme === 'dark'}
+                  activeClass="border-purple-500 bg-purple-500/15 text-purple-300"
+                />
+                <SourcePill
+                  label="Wikipedia"
+                  icon={BookOpen}
+                  emoji="📚"
+                  active={useWikipedia}
+                  onToggle={() => setUseWikipedia(!useWikipedia)}
+                  hint="Offline ZIM knowledge packs"
+                  isDark={resolvedTheme === 'dark'}
+                  activeClass="border-amber-500 bg-amber-500/15 text-amber-300"
+                />
+                <SourcePill
+                  label="My Docs"
+                  icon={Database}
+                  emoji="📄"
+                  active={useRAG}
+                  onToggle={() => setUseRAG(!useRAG)}
+                  hint={qdrantConnected ? `${docCount} docs indexed` : 'Upload docs first'}
+                  isDark={resolvedTheme === 'dark'}
+                  activeClass="border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                />
+                <SourcePill
+                  label="Network"
+                  icon={Globe}
+                  emoji="🌐"
+                  active={useNetworkKnowledge}
+                  onToggle={() => setUseNetworkKnowledge(!useNetworkKnowledge)}
+                  hint="SN442 peer-validated answers"
+                  isDark={resolvedTheme === 'dark'}
+                  activeClass="border-blue-500 bg-blue-500/15 text-blue-300"
+                />
+              </div>
+              {usePalaceMemory && (
+                <p
+                  className={`mt-2 text-[11px] italic ${
+                    resolvedTheme === 'dark' ? 'text-cyan-400/70' : 'text-cyan-700/70'
                   }`}
                 >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Creativity
-                </h3>
-
-                <div className="space-y-4">
-                  <div
-                    className={`flex items-center justify-between text-xs ${
-                      resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'
-                    }`}
-                  >
-                    <span>Logical</span>
-                    <span>Creative</span>
-                  </div>
-
-                  <div className="px-1">
-                    <Slider
-                      value={creativity}
-                      onValueChange={setCreativity}
-                      max={1}
-                      min={0}
-                      step={0.1}
-                      className="w-full"
-                    />
-                  </div>
-
-                  <div className={`text-center p-3 rounded-lg ${resolvedTheme === 'dark' ? 'bg-muted/30' : 'bg-gray-50'}`}>
-                    <div
-                      className={`text-sm font-semibold mb-1 ${resolvedTheme === 'dark' ? 'text-purple-300' : 'text-purple-700'}`}
-                    >
-                      {getCurrentCreativityLevel().label} Mode
-                    </div>
-                    <div className={`text-xs ${resolvedTheme === 'dark' ? 'text-muted-foreground' : 'text-gray-600'}`}>
-                      {getCurrentCreativityLevel().desc}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Include Network Knowledge Toggle */}
-              <div
-                className={`backdrop-blur rounded-2xl border p-4 ${
-                  resolvedTheme === 'dark' ? 'bg-card/50 border-blue-500/20' : 'bg-white/80 border-blue-200 shadow-sm'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-lg ${
-                      useNetworkKnowledge
-                        ? 'bg-blue-500/20'
-                        : resolvedTheme === 'dark' ? 'bg-slate-700/50' : 'bg-slate-100'
-                    }`}>
-                      <Globe className={`w-4 h-4 ${
-                        useNetworkKnowledge
-                          ? 'text-blue-400'
-                          : resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'
-                      }`} />
-                    </div>
-                    <div>
-                      <p className={`text-sm font-medium ${
-                        resolvedTheme === 'dark' ? 'text-slate-200' : 'text-slate-700'
-                      }`}>
-                        Include Network Knowledge
-                      </p>
-                      <p className={`text-xs ${
-                        resolvedTheme === 'dark' ? 'text-slate-400' : 'text-slate-500'
-                      }`}>
-                        Search Bittensor mining pool for context
-                      </p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={useNetworkKnowledge}
-                    onCheckedChange={setUseNetworkKnowledge}
-                  />
-                </div>
-              </div>
+                  🧠 Saving to memory after each response — every exchange becomes a recallable drawer in the conversations room
+                </p>
+              )}
             </div>
           </div>
 
@@ -500,6 +473,50 @@ const OllamaPage = () => {
       {/* Mobile-friendly status cards */}
       <MobileStatusCards selectedModelData={selectedModelData} isLoading={isLoading} />
     </DashboardLayout>
+  )
+}
+
+// ── Reusable source-toggle pill ─────────────────────────────────────────────
+// Small clickable pill that flips a knowledge-source layer on/off in the chat.
+// Active state uses an `activeClass` (per-source color), inactive is muted grey.
+function SourcePill({
+  label,
+  icon: Icon,
+  emoji,
+  active,
+  onToggle,
+  hint,
+  isDark,
+  activeClass,
+}: {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  emoji: string
+  active: boolean
+  onToggle: () => void
+  hint: string
+  isDark: boolean
+  activeClass: string
+}) {
+  const inactiveClass = isDark
+    ? 'border-slate-700 bg-slate-800/40 text-slate-500'
+    : 'border-slate-300 bg-white text-slate-400'
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={hint}
+      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+        active ? activeClass : inactiveClass
+      }`}
+    >
+      <span aria-hidden>{emoji}</span>
+      <Icon className="w-3.5 h-3.5" />
+      <span>{label}</span>
+      <span className={`ml-1 text-[10px] uppercase tracking-wide ${active ? 'opacity-80' : 'opacity-50'}`}>
+        {active ? 'on' : 'off'}
+      </span>
+    </button>
   )
 }
 

@@ -65,16 +65,19 @@ export default function Leaderboard() {
     setLoading(true)
     try {
       const [lb, cached] = await Promise.all([
-        (window as any).electron.invoke('benchmark:leaderboard'),
-        (window as any).electron.invoke('benchmark:cached'),
+        (window as any).electron.invoke('benchmark:leaderboard').catch(() => null),
+        (window as any).electron.invoke('benchmark:cached').catch(() => null),
       ])
-      setData(lb)
-      if (cached) {
-        setMyAnonymousId(cached.anonymousId)
-        setMyTier(cached.tier)
+      if (lb && lb.entries) {
+        setData(lb)
+      } else {
+        setData({ entries: [], totalMiners: 0, avgScore: 0, tierDistribution: {}, fetchedAt: '' })
       }
+      if (cached?.anonymousId) setMyAnonymousId(cached.anonymousId)
+      if (cached?.tier) setMyTier(cached.tier)
     } catch (err) {
       console.error('Failed to load leaderboard:', err)
+      setData({ entries: [], totalMiners: 0, avgScore: 0, tierDistribution: {}, fetchedAt: '' })
     } finally {
       setLoading(false)
     }
@@ -92,6 +95,7 @@ export default function Leaderboard() {
   const platform = typeof navigator !== 'undefined' && navigator.platform?.includes('Mac') ? 'mac' : 'linux'
 
   const filtered = entries.filter((e) => {
+    if (!e || typeof e.score !== 'number') return false
     if (filter === 'my-tier' && myTier) return e.tier === myTier
     if (filter === 'my-platform') return e.platform === platform
     return true

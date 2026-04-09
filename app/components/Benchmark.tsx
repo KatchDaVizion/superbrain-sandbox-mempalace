@@ -4,7 +4,7 @@
  * States: IDLE → RUNNING (animated) → COMPLETE (results card) → ERROR
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTheme } from 'next-themes'
 import DashboardLayout from './shared/DashboardLayout'
 
@@ -151,7 +151,7 @@ export default function Benchmark() {
   const loadCached = useCallback(async () => {
     try {
       const cached = await (window as any).electron.invoke('benchmark:cached')
-      if (cached) {
+      if (cached && cached.cpu && cached.ram && cached.storage && cached.ollama) {
         setResult(cached)
         setState('complete')
       }
@@ -159,7 +159,7 @@ export default function Benchmark() {
   }, [])
 
   // Load cached result on mount
-  useState(() => { loadCached() })
+  useEffect(() => { loadCached() }, [loadCached])
 
   const gradient = result ? TIER_COLORS[result.tier] || TIER_COLORS.OBSERVER : ''
 
@@ -368,7 +368,7 @@ export default function Benchmark() {
             </div>
 
             <div className={`text-xs text-center ${isDark ? 'text-zinc-600' : 'text-zinc-400'}`}>
-              Completed in {(result.totalDurationMs / 1000).toFixed(1)}s on {result.benchmarkedAt.split('T')[0]}
+              Completed in {((result.totalDurationMs || 0) / 1000).toFixed(1)}s on {result.benchmarkedAt?.split('T')[0] || 'N/A'}
             </div>
           </div>
         )}

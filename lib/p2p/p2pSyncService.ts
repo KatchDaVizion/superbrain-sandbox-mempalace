@@ -11,7 +11,7 @@ import * as path from 'path'
 import * as crypto from 'crypto'
 import { EventEmitter } from 'events'
 
-const SEED_NODE = 'http://46.225.114.202:8400'
+const SEED_NODE = process.env.SB_API_URL || 'http://46.225.114.202:8400'
 const P2P_PORT = 8500
 const SYNC_INTERVAL = 30_000
 const ANNOUNCE_INTERVAL = 60_000
@@ -43,6 +43,7 @@ export class P2PSyncService extends EventEmitter {
   private syncTimer: NodeJS.Timeout | null = null
   private announceTimer: NodeJS.Timeout | null = null
   private myUrl: string = ''
+  private publicUrl: string | null = null
   private nodeId: string = ''
   private localChunks: P2PChunk[] = []
   private receivedChunks: P2PChunk[] = []
@@ -174,18 +175,28 @@ export class P2PSyncService extends EventEmitter {
     return `http://127.0.0.1:${P2P_PORT}`
   }
 
+  setPublicUrl(url: string): void {
+    this.publicUrl = url
+    console.log(`[P2P] Public URL set: ${url}`)
+    // Re-announce with the public URL so peers can reach us
+    this.announceToSeed().catch(() => {})
+  }
+
+  getPublicUrl(): string | null { return this.publicUrl }
+
   private async announceToSeed(): Promise<void> {
+    const announceUrl = this.publicUrl || this.myUrl
     try {
       await axios.post(`${SEED_NODE}/announce`, {
         hotkey: this.nodeId,
         node_id: this.nodeId,
-        url: this.myUrl,
+        url: announceUrl,
         chunks: this.localChunks.length,
         city: 'Unknown',
         lat: 0,
         lon: 0,
       }, { timeout: 5000 })
-      console.log(`[P2P] Announced to seed: ${this.myUrl}`)
+      console.log(`[P2P] Announced to seed: ${announceUrl}`)
     } catch {
       console.warn('[P2P] Seed unreachable — local mode only')
     }
@@ -240,7 +251,8 @@ export class P2PSyncService extends EventEmitter {
   }
 
   private async syncFromPeer(peer: Peer): Promise<number> {
-    const resp = await axios.get(`${peer.url}/knowledge/list`, { timeout: 8000 })
+    const isTunnel = peer.url.startsWith('https://')
+    const resp = await axios.get(`${peer.url}/knowledge/list`, { timeout: isTunnel ? 15000 : 8000 })
     const chunks: P2PChunk[] = resp.data?.chunks || []
     const existingIds = new Set([
       ...this.receivedChunks.map(c => c.id),

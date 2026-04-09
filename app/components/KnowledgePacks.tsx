@@ -121,13 +121,21 @@ export function KnowledgePacks() {
   }
 
   const handleCancel = async (packId: string) => {
-    await (window as any).electron.invoke('zim:download:cancel', packId)
+    try {
+      await (window as any).electron.invoke('zim:download:cancel', packId)
+    } catch (err) {
+      console.error('Cancel failed:', err)
+    }
   }
 
   const handleRemove = async (filename: string) => {
     if (!confirm('Remove this knowledge pack? You can re-download it later.')) return
-    await (window as any).electron.invoke('zim:remove', filename)
-    await refreshData()
+    try {
+      await (window as any).electron.invoke('zim:remove', filename)
+      await refreshData()
+    } catch (err) {
+      console.error('Remove failed:', err)
+    }
   }
 
   const totalInstalled = packs.reduce((sum, p) => sum + (p.installed ? p.installedSizeBytes : 0), 0)

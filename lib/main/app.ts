@@ -4,10 +4,11 @@ import { registerWindowIPC } from '@/lib/window/ipcEvents'
 import appIcon from '@/resources/build/supericon.png'
 import { pathToFileURL } from 'url'
 import os from 'os'
-import { execSync, exec } from 'child_process'
+import { execSync, exec, spawn, ChildProcess } from 'child_process'
 import crypto from 'crypto'
 import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
+import { mempalace } from '../mempalace'
 import { downloadZim, cancelDownload, getInstalledPacks, KNOWLEDGE_PACKS } from '../zim/zimDownloader'
 import { runBenchmark, getCachedBenchmark, getTierInfo } from '../benchmark/benchmarkService'
 import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/leaderboardService'
@@ -134,8 +135,114 @@ app.whenReady().then(async () => {
 })
 
 // -----------------------
-// INIT P2P SYNC SERVICE
+// INIT P2P SYNC SERVICE + PUBLIC TUNNEL (ngrok)
 // -----------------------
+// Replaces the previous localtunnel implementation. ngrok is more reliable
+// (custom subdomains via paid plan, no random subdomain churn) but requires
+// a one-time `ngrok config add-authtoken <TOKEN>` setup. If the authtoken is
+// missing, we degrade gracefully — chat continues, only the public P2P URL
+// is unavailable.
+let tunnelUrl: string | null = null
+let ngrokProcess: ChildProcess | null = null
+let ngrokHealthInterval: NodeJS.Timeout | null = null
+
+async function fetchNgrokPublicUrl(): Promise<string | null> {
+  // Local ngrok daemon exposes a REST API on :4040 listing live tunnels.
+  try {
+    const r = await fetch('http://localhost:4040/api/tunnels')
+    if (!r.ok) return null
+    const data = (await r.json()) as { tunnels?: Array<{ public_url?: string }> }
+    const tunnels = data?.tunnels || []
+    // Prefer https, fall back to first tunnel.
+    const httpsT = tunnels.find((t) => t.public_url?.startsWith('https://'))
+    return httpsT?.public_url || tunnels[0]?.public_url || null
+  } catch {
+    return null
+  }
+}
+
+async function spawnNgrokAndWait(): Promise<string | null> {
+  // Tear down any prior process before respawning.
+  if (ngrokProcess && !ngrokProcess.killed) {
+    try { ngrokProcess.kill('SIGTERM') } catch { /* noop */ }
+  }
+
+  try {
+    ngrokProcess = spawn('ngrok', ['http', '8500', '--log=stdout'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
+    })
+  } catch (err) {
+    // ENOENT — ngrok binary missing on this machine.
+    console.warn('[P2P] ngrok not installed:', (err as Error).message)
+    return null
+  }
+
+  let authError = false
+  ngrokProcess.stderr?.on('data', (chunk) => {
+    const msg = chunk.toString()
+    if (msg.includes('ERR_NGROK_4018') || msg.includes('authtoken')) {
+      if (!authError) {
+        authError = true
+        console.warn('[P2P] ngrok requires authtoken — run: ngrok config add-authtoken <TOKEN>')
+      }
+    }
+  })
+  ngrokProcess.on('exit', (code) => {
+    if (code !== 0 && code !== null) {
+      console.log(`[P2P] ngrok exited (code ${code})`)
+    }
+  })
+
+  // Poll the local API for up to 5 seconds (10 × 500ms) for the URL to appear.
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 500))
+    if (authError) return null
+    const url = await fetchNgrokPublicUrl()
+    if (url) return url
+  }
+  return null
+}
+
+async function startPublicTunnel(): Promise<string | null> {
+  const url = await spawnNgrokAndWait()
+  if (!url) {
+    console.warn('[P2P] No public tunnel available — chat continues offline. To enable: install ngrok and run `ngrok config add-authtoken <TOKEN>`')
+    return null
+  }
+  console.log(`[P2P] ngrok tunnel: ${url}`)
+
+  // Register public URL with Frankfurt seed (best-effort, fire-and-forget).
+  fetch('http://46.225.114.202:8400/announce', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, node_id: `sb-${os.hostname()}` }),
+  }).catch(() => { /* Frankfurt offline — chat continues */ })
+
+  // Health check every 60s. If the tunnel disappeared, respawn ngrok.
+  if (ngrokHealthInterval) clearInterval(ngrokHealthInterval)
+  ngrokHealthInterval = setInterval(async () => {
+    const liveUrl = await fetchNgrokPublicUrl()
+    if (!liveUrl) {
+      console.warn('[P2P] ngrok tunnel dead — respawning')
+      const newUrl = await spawnNgrokAndWait()
+      if (newUrl) {
+        tunnelUrl = newUrl
+        p2pSync.setPublicUrl(newUrl)
+        console.log(`[P2P] ngrok tunnel respawned: ${newUrl}`)
+        // Re-announce to Frankfurt with the new URL.
+        fetch('http://46.225.114.202:8400/announce', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: newUrl, node_id: `sb-${os.hostname()}` }),
+        }).catch(() => {})
+      }
+    }
+  }, 60_000)
+
+  return url
+}
+
 app.whenReady().then(async () => {
   // Start P2P sync service
   p2pSync.start().catch(err => console.warn('[P2P] Start failed:', err))
@@ -153,14 +260,31 @@ app.whenReady().then(async () => {
     }
   })
 
-  p2pSync.on('ready', ({ nodeId, url }: { nodeId: string, url: string }) => {
+  p2pSync.on('ready', async ({ nodeId, url }: { nodeId: string, url: string }) => {
     console.log(`[P2P] Ready — ${nodeId} at ${url}`)
+
+    // Auto-start public tunnel after P2P local server is up
+    tunnelUrl = await startPublicTunnel()
+    if (tunnelUrl) {
+      p2pSync.setPublicUrl(tunnelUrl)
+    }
   })
 })
+
+ipcMain.handle('p2p:public-url', () => tunnelUrl)
 
 app.on('before-quit', async () => {
   await p2pSync.stop()
   await zimService.stop()
+  // Stop ngrok cleanly so we don't leak the tunnel.
+  if (ngrokHealthInterval) {
+    clearInterval(ngrokHealthInterval)
+    ngrokHealthInterval = null
+  }
+  if (ngrokProcess && !ngrokProcess.killed) {
+    try { ngrokProcess.kill('SIGTERM') } catch { /* noop */ }
+    ngrokProcess = null
+  }
 })
 
 // -----------------------
@@ -531,8 +655,7 @@ export interface NetworkPoolStats {
 }
 
 /**
- * Network RAG query — search the collective knowledge pool and get AI-generated answers.
- * Calls sync/query/network_rag.py via Python subprocess.
+ * Network RAG query — query the SN442 knowledge pool via Frankfurt API.
  */
 ipcMain.handle(
   'superbrain:network:query',
@@ -541,55 +664,63 @@ ipcMain.handle(
     query: string,
     options: { dbPath?: string; topK?: number; searchOnly?: boolean } = {}
   ): Promise<NetworkQueryResult | NetworkSearchResult> => {
+    const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
-      const subnetDir = join(os.homedir(), 'superbrain-subnet')
-      const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
-      const dbPath =
-        options.dbPath ||
-        join(os.homedir(), '.bittensor', 'miners', 'sb_miner', 'default', 'netuid442', 'miner', 'miner_sync_queue.db')
-      const topK = options.topK || 5
-      const mode = options.searchOnly ? 'search' : 'answer'
-
-      const jsonArgs = JSON.stringify({ query, db_path: dbPath, top_k: topK, mode })
-
-      const stdout = await execPython([scriptPath, jsonArgs], {
-        cwd: subnetDir,
-        timeout: 60000,
+      if (options.searchOnly) {
+        const resp = await fetch(`${SN442}/knowledge/list`, { signal: AbortSignal.timeout(10000) })
+        const data = await resp.json()
+        const results = (data.chunks || []).slice(0, options.topK || 5).map((c: any) => ({
+          content: c.content_preview || '', content_hash: c.id || '', score: 1.0, relevance: 1.0,
+          freshness: 1.0, source: c.title || 'SN442', timestamp: Date.now() / 1000, node_id: 'frankfurt',
+        }))
+        return { results }
+      }
+      const resp = await fetch(`${SN442}/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: query, mode: 'auto' }),
+        signal: AbortSignal.timeout(15000),
       })
-
-      const result = JSON.parse(stdout.trim())
-      return result
+      const data = await resp.json()
+      return {
+        text: data.answer || '', citations: data.citations ? data.citations.map((_c: any, i: number) => i) : [],
+        sources: (data.citations || []).map((c: any) => ({
+          content: typeof c === 'string' ? c : JSON.stringify(c), content_hash: '', score: 1.0,
+          relevance: 1.0, freshness: 1.0, source: typeof c === 'string' ? c : 'SN442',
+          timestamp: Date.now() / 1000, node_id: 'frankfurt',
+        })),
+        method: data.method || 'network', query, generation_time: data.latency_ms || 0,
+      }
     } catch (error) {
-      console.error('[NetworkRAG] Query failed:', error)
-      throw new Error(`Network query failed: ${(error as Error).message}`)
+      console.error('[NetworkRAG] Query failed:', (error as Error).message)
+      return { text: 'Network unreachable', citations: [], sources: [], method: 'error', query, generation_time: 0 }
     }
   }
 )
 
 /**
- * Network RAG pool stats — get knowledge pool statistics.
+ * Network RAG pool stats — get knowledge pool statistics from Frankfurt.
  */
 ipcMain.handle(
   'superbrain:network:stats',
-  async (_event, options: { dbPath?: string } = {}): Promise<NetworkPoolStats> => {
+  async (_event, _options: { dbPath?: string } = {}): Promise<NetworkPoolStats> => {
+    const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
-      const subnetDir = join(os.homedir(), 'superbrain-subnet')
-      const scriptPath = join(subnetDir, 'scripts', 'network_query_ipc.py')
-      const dbPath =
-        options.dbPath ||
-        join(os.homedir(), '.bittensor', 'miners', 'sb_miner', 'default', 'netuid442', 'miner', 'miner_sync_queue.db')
-
-      const jsonArgs = JSON.stringify({ query: '', db_path: dbPath, top_k: 0, mode: 'stats' })
-
-      const stdout = await execPython([scriptPath, jsonArgs], {
-        cwd: subnetDir,
-        timeout: 15000,
-      })
-
-      return JSON.parse(stdout.trim())
+      const [healthResp, listResp, peersResp] = await Promise.all([
+        fetch(`${SN442}/health`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({})),
+        fetch(`${SN442}/knowledge/list`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({ chunks: [] })),
+        fetch(`${SN442}/peers`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({ peers: [] })),
+      ])
+      const chunks = listResp.chunks || []
+      const peers = peersResp.peers || []
+      return {
+        total_chunks: chunks.length, unique_nodes: peers.length + 1,
+        oldest_chunk: null, newest_chunk: null,
+        embedding_backend: 'frankfurt-api', ollama_available: healthResp.status === 'ok',
+      }
     } catch (error) {
-      console.error('[NetworkRAG] Stats failed:', error)
-      throw new Error(`Network stats failed: ${(error as Error).message}`)
+      console.error('[NetworkRAG] Stats failed:', (error as Error).message)
+      return { total_chunks: 0, unique_nodes: 0, oldest_chunk: null, newest_chunk: null, embedding_backend: 'offline', ollama_available: false }
     }
   }
 )
@@ -846,6 +977,32 @@ ipcMain.handle('rag:qdrant:listCollections', async () => {
 })
 
 // -----------------------
+// EARNINGS
+// -----------------------
+
+ipcMain.handle('earnings:get', async (_event, hotkey: string) => {
+  try {
+    const resp = await fetch(`http://46.225.114.202:8400/earnings/${encodeURIComponent(hotkey)}`, { signal: AbortSignal.timeout(10000) })
+    return await resp.json()
+  } catch {
+    return { error: 'Frankfurt unreachable', chunks: [], total_chunks: 0, total_retrievals: 0 }
+  }
+})
+
+ipcMain.handle('earnings:share-with-hotkey', async (_event, content: string, title: string, hotkey: string) => {
+  try {
+    const resp = await fetch('http://46.225.114.202:8400/knowledge/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, title, source: 'superbrain-desktop', contributor_hotkey: hotkey })
+    })
+    return await resp.json()
+  } catch {
+    return { error: 'Share failed' }
+  }
+})
+
+// -----------------------
 // ZIM (Offline Knowledge Packs)
 // -----------------------
 
@@ -944,16 +1101,29 @@ ipcMain.handle('benchmark:submit', async (_event, result) => {
 })
 
 ipcMain.handle('benchmark:leaderboard', async () => {
-  return fetchLeaderboard(100)
+  try {
+    const data = await fetchLeaderboard(100)
+    return JSON.parse(JSON.stringify(data))
+  } catch {
+    return { entries: [], totalMiners: 0, avgScore: 0, tierDistribution: {}, fetchedAt: '' }
+  }
 })
 
 ipcMain.handle('benchmark:rank', async (_event, userScore: number) => {
-  const lb = await fetchLeaderboard(100)
-  return calculateUserRank(userScore, lb)
+  try {
+    const lb = await fetchLeaderboard(100)
+    return JSON.parse(JSON.stringify(calculateUserRank(userScore, lb)))
+  } catch {
+    return { rank: 0, totalMiners: 0, percentile: 0, betterThan: 0 }
+  }
 })
 
 ipcMain.handle('benchmark:cached', () => {
-  return getCachedBenchmark()
+  const cached = getCachedBenchmark()
+  if (!cached) return null
+  // Validate the cached result has the full structure (CLI writes a simplified version)
+  if (!cached.cpu || !cached.ram || !cached.storage || !cached.ollama) return null
+  return JSON.parse(JSON.stringify(cached))
 })
 
 ipcMain.handle('benchmark:tiers', () => {
@@ -964,7 +1134,7 @@ ipcMain.handle('benchmark:tiers', () => {
 // SHARE QDRANT CHUNKS TO SN442 NETWORK
 // -----------------------
 
-const SN442_SEED = 'http://46.225.114.202:8400'
+const SN442_SEED = process.env.SB_API_URL || 'http://46.225.114.202:8400'
 
 /**
  * Share already-ingested Qdrant documents to the SN442 network.
@@ -1060,3 +1230,58 @@ ipcMain.handle(
     }
   }
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MemPalace — Layer 0 cross-session memory (subprocess to ~/.mempalace-venv)
+// ─────────────────────────────────────────────────────────────────────────────
+ipcMain.handle('mempalace:status', async () => {
+  return mempalace.status()
+})
+
+ipcMain.handle('mempalace:wakeup', async (_event, wing: string = 'superbrain') => {
+  return mempalace.wakeUp(wing)
+})
+
+ipcMain.handle('mempalace:search', async (_event, query: string, limit: number = 5) => {
+  return mempalace.search(query, limit)
+})
+
+ipcMain.handle(
+  'mempalace:add-drawer',
+  async (_event, content: string, wing: string, room: string) => {
+    return mempalace.addDrawer(content, wing, room)
+  }
+)
+
+// User-editable identity (~/.mempalace/identity.txt — the L0 wake-up text).
+// Read on Memory Palace page mount, written on Save click. Wakeup cache in
+// the service is cleared on write so the next chat picks up the new identity.
+ipcMain.handle('mempalace:get-identity', async () => {
+  try {
+    const fs = await import('fs')
+    const path = await import('path')
+    const file = path.join(os.homedir(), '.mempalace', 'identity.txt')
+    if (!fs.existsSync(file)) return ''
+    return fs.readFileSync(file, 'utf8')
+  } catch (err) {
+    console.warn('[mempalace:get-identity] failed:', (err as Error).message)
+    return ''
+  }
+})
+
+ipcMain.handle('mempalace:set-identity', async (_event, content: string) => {
+  try {
+    const fs = await import('fs')
+    const path = await import('path')
+    const dir = path.join(os.homedir(), '.mempalace')
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    const file = path.join(dir, 'identity.txt')
+    fs.writeFileSync(file, content, 'utf8')
+    // Invalidate the cached wake-up text so the next chat sees the new identity.
+    mempalace.clearWakeupCache()
+    return true
+  } catch (err) {
+    console.warn('[mempalace:set-identity] failed:', (err as Error).message)
+    return false
+  }
+})
