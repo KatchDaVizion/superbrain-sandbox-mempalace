@@ -8,6 +8,7 @@ import { execSync, exec, spawn, ChildProcess } from 'child_process'
 import crypto from 'crypto'
 import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
+import { mesh } from '../p2p/meshNetwork'
 import { mempalace } from '../mempalace'
 import { downloadZim, cancelDownload, getInstalledPacks, KNOWLEDGE_PACKS } from '../zim/zimDownloader'
 import { runBenchmark, getCachedBenchmark, getTierInfo } from '../benchmark/benchmarkService'
@@ -269,13 +270,27 @@ app.whenReady().then(async () => {
       p2pSync.setPublicUrl(tunnelUrl)
     }
   })
+
+  // Start the Hyperswarm mesh layer (silent fail — Frankfurt remains authoritative)
+  mesh.start().then((ok) => {
+    if (ok) console.log('[mesh] Hyperswarm mesh active')
+  }).catch((err) => console.warn('[mesh] start failed:', err?.message))
+
+  // Forward mesh status updates to all renderer windows
+  mesh.on('status-update', (stats) => {
+    for (const win of BrowserWindow.getAllWindows()) {
+      try { win.webContents.send('mesh:status-update', stats) } catch { /* noop */ }
+    }
+  })
 })
 
 ipcMain.handle('p2p:public-url', () => tunnelUrl)
+ipcMain.handle('mesh:status', () => mesh.getStats())
 
 app.on('before-quit', async () => {
   await p2pSync.stop()
   await zimService.stop()
+  await mesh.stop()
   // Stop ngrok cleanly so we don't leak the tunnel.
   if (ngrokHealthInterval) {
     clearInterval(ngrokHealthInterval)
@@ -990,15 +1005,48 @@ ipcMain.handle('earnings:get', async (_event, hotkey: string) => {
 })
 
 ipcMain.handle('earnings:share-with-hotkey', async (_event, content: string, title: string, hotkey: string) => {
+  // Step 1: Frankfurt POST (unchanged behavior)
+  let frankfurtResult: any
   try {
     const resp = await fetch('http://46.225.114.202:8400/knowledge/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ content, title, source: 'superbrain-desktop', contributor_hotkey: hotkey })
     })
-    return await resp.json()
+    frankfurtResult = await resp.json()
   } catch {
     return { error: 'Share failed' }
+  }
+
+  // Step 2: ALSO broadcast to Hyperswarm mesh peers (best-effort, non-blocking
+  // for the Frankfurt result). Runs the 4 flag rules; if accepted, hits every
+  // connected SuperBrain peer directly. Mesh failures are silent — Frankfurt
+  // remains authoritative.
+  let mesh_success = false
+  let mesh_peers_reached = 0
+  let mesh_flag: { reason: string; explanation: string } | undefined
+
+  if (frankfurtResult && (frankfurtResult.success || frankfurtResult.chunk_id)) {
+    try {
+      const meshResult = await mesh.shareChunk(content, 'general', hotkey)
+      mesh_success = meshResult.success
+      mesh_peers_reached = meshResult.peersReached
+      if (meshResult.flag) {
+        mesh_flag = { reason: meshResult.flag.reason, explanation: meshResult.flag.explanation }
+        console.log(`[SHARE] Mesh flagged: ${meshResult.flag.reason} — ${meshResult.flag.explanation}`)
+      } else if (meshResult.success) {
+        console.log(`[SHARE] Mesh broadcast OK — ${meshResult.peersReached} direct peers reached`)
+      }
+    } catch (err) {
+      console.warn('[SHARE] Mesh broadcast failed silently:', (err as Error).message)
+    }
+  }
+
+  return {
+    ...frankfurtResult,
+    mesh_success,
+    mesh_peers_reached,
+    mesh_flag,
   }
 })
 

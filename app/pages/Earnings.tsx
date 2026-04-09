@@ -64,6 +64,8 @@ const Earnings = () => {
   const [shareTitle, setShareTitle] = useState('')
   const [sharing, setSharing] = useState(false)
   const [shareResult, setShareResult] = useState<string | null>(null)
+  const [shareIsFlag, setShareIsFlag] = useState(false)
+  const [meshPeers, setMeshPeers] = useState<number>(0)
 
   // Load hotkey from localStorage
   useEffect(() => {
@@ -71,6 +73,29 @@ const Earnings = () => {
     if (saved) {
       setHotkey(saved)
       setHotkeyInput(saved)
+    }
+  }, [])
+
+  // Live mesh peer count — initial fetch + push updates from main process
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const stats = await (window as any).electron.invoke('mesh:status')
+        if (stats && typeof stats.peers === 'number') setMeshPeers(stats.peers)
+      } catch { /* mesh unavailable — keep 0 */ }
+    }
+    fetchStats()
+    const interval = setInterval(fetchStats, 30000)
+
+    const onUpdate = (_: unknown, stats: { peers: number }) => {
+      if (stats && typeof stats.peers === 'number') setMeshPeers(stats.peers)
+    }
+    const electron = (window as any).electron
+    if (electron?.on) electron.on('mesh:status-update', onUpdate)
+
+    return () => {
+      clearInterval(interval)
+      if (electron?.removeListener) electron.removeListener('mesh:status-update', onUpdate)
     }
   }, [])
 
@@ -122,6 +147,7 @@ const Earnings = () => {
     if (!shareContent.trim()) return
     setSharing(true)
     setShareResult(null)
+    setShareIsFlag(false)
     try {
       const data = await window.electron.invoke(
         'earnings:share-with-hotkey',
@@ -130,14 +156,26 @@ const Earnings = () => {
         hotkey,
       )
       if (data.success) {
-        setShareResult(`Shared! chunk_id: ${data.chunk_id}`)
+        // Frankfurt accepted. Now check the mesh layer.
+        if (data.mesh_flag) {
+          // Mesh flagged the chunk — Frankfurt still has it, but tell the user
+          // why the direct-peer broadcast didn't go out.
+          setShareIsFlag(true)
+          setShareResult(`✅ Frankfurt: ${data.chunk_id} · ⚠️ Mesh flag (${data.mesh_flag.reason}): ${data.mesh_flag.explanation}`)
+        } else if (data.mesh_success) {
+          setShareResult(`✅ Shared to Frankfurt + ${data.mesh_peers_reached} direct peer${data.mesh_peers_reached === 1 ? '' : 's'} · chunk_id: ${data.chunk_id}`)
+        } else {
+          // Mesh is offline / no peers — Frankfurt POST is still authoritative
+          setShareResult(`✅ Shared to Frankfurt · chunk_id: ${data.chunk_id}`)
+        }
         setShareContent('')
         setShareTitle('')
         setTimeout(() => {
           setShowShareModal(false)
           setShareResult(null)
+          setShareIsFlag(false)
           fetchEarnings()
-        }, 2000)
+        }, 4000)
       } else {
         setShareResult(`Error: ${data.message}`)
       }
@@ -303,6 +341,9 @@ const Earnings = () => {
                 Share Knowledge
               </button>
             </div>
+          </div>
+          <div className={`mt-2 text-[11px] ${dark ? 'text-cyan-400/70' : 'text-cyan-700/70'}`}>
+            🌐 {meshPeers} direct {meshPeers === 1 ? 'peer' : 'peers'} online via Hyperswarm mesh
           </div>
 
           <div className="overflow-x-auto">
@@ -483,13 +524,18 @@ const Earnings = () => {
             <div className={`text-xs mb-4 p-3 rounded-md border ${dark ? 'bg-yellow-950/30 border-yellow-700/30 text-yellow-400' : 'bg-yellow-50 border-yellow-200 text-yellow-700'}`}>
               Sharing to the network is <strong>permanent</strong>. Content will be visible to all peers and scored by the validator.
             </div>
+            <div className={`text-[11px] mb-3 ${dark ? 'text-cyan-400/70' : 'text-cyan-700/70'}`}>
+              🌐 Will broadcast to Frankfurt + {meshPeers} direct mesh {meshPeers === 1 ? 'peer' : 'peers'}
+            </div>
 
             {shareResult && (
               <div
                 className={`text-sm mb-3 p-2 rounded-md ${
-                  shareResult.startsWith('Shared')
-                    ? dark ? 'bg-green-950/30 text-green-400' : 'bg-green-50 text-green-700'
-                    : dark ? 'bg-red-950/30 text-red-400' : 'bg-red-50 text-red-700'
+                  shareIsFlag
+                    ? dark ? 'bg-amber-950/30 text-amber-300' : 'bg-amber-50 text-amber-700'
+                    : shareResult.startsWith('✅')
+                      ? dark ? 'bg-green-950/30 text-green-400' : 'bg-green-50 text-green-700'
+                      : dark ? 'bg-red-950/30 text-red-400' : 'bg-red-50 text-red-700'
                 }`}
               >
                 {shareResult}
