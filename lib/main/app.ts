@@ -282,6 +282,40 @@ app.whenReady().then(async () => {
       try { win.webContents.send('mesh:status-update', stats) } catch { /* noop */ }
     }
   })
+
+  // Startup connectivity banner — one-shot check against the Frankfurt seed.
+  // Logs a 3-line summary so we can confirm in the dev console that the app
+  // came up with a healthy view of the network. Times out cleanly at 5s and
+  // never blocks app boot — failure path is a single warn line.
+  ;(async () => {
+    const seed = process.env.SB_API_URL || 'http://46.225.114.202:8400'
+    const ctrl = new AbortController()
+    const timeout = setTimeout(() => ctrl.abort(), 5_000)
+    try {
+      const [healthRes, peersRes, chunksRes] = await Promise.all([
+        fetch(`${seed}/health`, { signal: ctrl.signal }),
+        fetch(`${seed}/peers`, { signal: ctrl.signal }),
+        fetch(`${seed}/chunks`, { signal: ctrl.signal }),
+      ])
+      const health = (await healthRes.json()) as { status?: string }
+      const peers = (await peersRes.json()) as { peers?: unknown[]; total?: number }
+      const chunks = (await chunksRes.json()) as { total?: number }
+      const peerCount = Array.isArray(peers?.peers) ? peers.peers.length : (peers?.total ?? 0)
+      const chunkCount = chunks?.total ?? 0
+      if (health?.status === 'ok') {
+        console.log(`[startup] Frankfurt API: OK (${chunkCount} chunks, ${peerCount} peers)`)
+      } else {
+        console.warn(`[startup] Frankfurt API: degraded — ${JSON.stringify(health).slice(0, 80)}`)
+      }
+      const meshStats = mesh.getStats()
+      console.log(`[startup] Mesh: joined topic ${meshStats.topic}`)
+      console.log('[startup] DHT bootstrap: 46.225.114.202:49737 (Hyperswarm)')
+    } catch (err) {
+      console.warn(`[startup] Frankfurt unreachable: ${(err as Error).message}`)
+    } finally {
+      clearTimeout(timeout)
+    }
+  })()
 })
 
 ipcMain.handle('p2p:public-url', () => tunnelUrl)
@@ -741,8 +775,17 @@ ipcMain.handle(
 )
 
 /**
- * Share to Network — bridge RAG ingestion to the Bittensor SyncQueue.
- * Creates Ed25519-signed KnowledgeChunks and adds them to the miner's queue.
+ * Share to Network — POST a single chunk to the SN442 Frankfurt seed.
+ *
+ * Replaces the previous spawn-python implementation that called
+ * ~/superbrain-subnet/scripts/share_to_network.py and wrote into a local
+ * miner_sync_queue.db. Neither path exists on Kali — the local miner queue
+ * was retired when Frankfurt became seed/bootstrap-only. The handler now
+ * speaks directly to /knowledge/share over HTTP.
+ *
+ * Return shape is preserved (ShareToNetworkResult) so existing renderer
+ * call sites in IngestModal, useNetworkRAG, and useConversationLearning
+ * continue to compile and read result.success / result.new_chunks.
  */
 export interface ShareToNetworkResult {
   success: boolean
@@ -759,38 +802,84 @@ ipcMain.handle(
     _event,
     payload: { mode: 'text' | 'file'; content?: string; filePath?: string; title?: string }
   ): Promise<ShareToNetworkResult> => {
+    const seed = process.env.SB_API_URL || 'http://46.225.114.202:8400'
+    const dbPath = `${seed}/knowledge/share`
+
     try {
-      const subnetDir = join(os.homedir(), 'superbrain-subnet')
-      const scriptPath = join(subnetDir, 'scripts', 'share_to_network.py')
-      const dbPath = join(
-        os.homedir(),
-        '.bittensor',
-        'miners',
-        'sb_miner',
-        'default',
-        'netuid442',
-        'miner',
-        'miner_sync_queue.db'
-      )
+      // Resolve content from either text or file mode.
+      let content = ''
+      if (payload.mode === 'text') {
+        content = (payload.content || '').trim()
+      } else if (payload.mode === 'file') {
+        if (!payload.filePath) {
+          return {
+            success: false,
+            total_chunks: 0,
+            new_chunks: 0,
+            duplicates: 0,
+            db_path: dbPath,
+            error: 'file mode requires filePath',
+          }
+        }
+        // Cap the read at 64 KB so we don't try to ship a 50 MB PDF as one chunk.
+        // Binary files will produce noisy text — caller should prefer
+        // rag:share-chunks-to-network (Qdrant scroll path) for ingested docs.
+        const fs = await import('fs/promises')
+        const buf = await fs.readFile(payload.filePath)
+        content = buf.toString('utf8').slice(0, 64_000).trim()
+      }
 
-      const jsonArgs: Record<string, string> = {
-        mode: payload.mode,
+      if (!content || content.length < 20) {
+        return {
+          success: false,
+          total_chunks: 0,
+          new_chunks: 0,
+          duplicates: 0,
+          db_path: dbPath,
+          error: 'content too short (need >= 20 chars)',
+        }
+      }
+
+      const ctrl = new AbortController()
+      const timeout = setTimeout(() => ctrl.abort(), 10_000)
+      let resp: Response
+      try {
+        resp = await fetch(dbPath, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content: content.slice(0, 5_000),
+            title: payload.title || 'Untitled',
+            source: 'superbrain-desktop',
+            contributor_hotkey: '',
+          }),
+          signal: ctrl.signal,
+        })
+      } finally {
+        clearTimeout(timeout)
+      }
+
+      if (!resp.ok) {
+        return {
+          success: false,
+          total_chunks: 0,
+          new_chunks: 0,
+          duplicates: 0,
+          db_path: dbPath,
+          error: `Frankfurt ${resp.status} ${resp.statusText}`,
+        }
+      }
+
+      const data = (await resp.json()) as { success?: boolean; chunk_id?: string; message?: string }
+      const ok = data?.success === true
+      return {
+        success: ok,
+        total_chunks: 1,
+        new_chunks: ok ? 1 : 0,
+        duplicates: 0,
         db_path: dbPath,
-        title: payload.title || '',
+        error: ok ? undefined : data?.message || 'share rejected by seed',
       }
-
-      if (payload.mode === 'file' && payload.filePath) {
-        jsonArgs.file_path = payload.filePath
-      } else if (payload.content) {
-        jsonArgs.content = payload.content
-      }
-
-      const stdout = await execPython([scriptPath, JSON.stringify(jsonArgs)], {
-        cwd: subnetDir,
-        timeout: 60000,
-      })
-
-      return JSON.parse(stdout.trim())
     } catch (error) {
       console.error('[ShareToNetwork] Failed:', error)
       return {
@@ -798,7 +887,7 @@ ipcMain.handle(
         total_chunks: 0,
         new_chunks: 0,
         duplicates: 0,
-        db_path: '',
+        db_path: dbPath,
         error: (error as Error).message,
       }
     }

@@ -48,6 +48,10 @@ export class P2PSyncService extends EventEmitter {
   private localChunks: P2PChunk[] = []
   private receivedChunks: P2PChunk[] = []
   private isRunning = false
+  // Track peer URLs we've already logged as offline this session so the
+  // 30s sync loop doesn't spam "[P2P] Peer offline: ..." every interval.
+  // Cleared on successful re-sync so we log a fresh transition next time.
+  private loggedOfflinePeers: Set<string> = new Set()
 
   constructor() {
     super()
@@ -239,9 +243,18 @@ export class P2PSyncService extends EventEmitter {
         totalNew += newChunks
         peer.online = true
         peer.last_seen = Date.now()
+        // Recovery: peer is back, allow a fresh "offline" log next time it drops
+        if (this.loggedOfflinePeers.delete(peer.url)) {
+          console.log(`[P2P] Peer back online: ${peer.url}`)
+        }
       } catch {
         peer.online = false
-        console.warn(`[P2P] Peer offline: ${peer.url}`)
+        // Only log the first time per session — the next 30s sync would
+        // otherwise re-log the same offline peer indefinitely.
+        if (!this.loggedOfflinePeers.has(peer.url)) {
+          console.warn(`[P2P] Peer offline: ${peer.url}`)
+          this.loggedOfflinePeers.add(peer.url)
+        }
       }
     }
     if (totalNew > 0) {
