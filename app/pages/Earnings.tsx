@@ -12,6 +12,8 @@ import {
   Database,
   TrendingUp,
   Target,
+  Wallet,
+  Radio,
 } from 'lucide-react'
 
 const SN442_API = 'http://46.225.114.202:8400'
@@ -49,6 +51,37 @@ interface ValidatorLog {
   rounds: ValidatorRound[]
 }
 
+interface WalletBalance {
+  ok: boolean
+  walletName?: string
+  network?: string
+  coldkey?: string
+  free?: number
+  staked?: number
+  total?: number
+  fetchedAt?: number
+  error?: string
+}
+
+interface MetagraphNode {
+  uid: number
+  stake: number
+  axon_ip: string
+  axon_port: number
+  is_serving: boolean
+  dividends: number
+  incentive: number
+  emissions: number
+}
+
+interface ValidatorPosition {
+  ok: boolean
+  validator?: MetagraphNode | null
+  miner?: MetagraphNode | null
+  fetchedAt?: number
+  error?: string
+}
+
 const Earnings = () => {
   const { resolvedTheme } = useTheme()
   const dark = resolvedTheme === 'dark'
@@ -66,6 +99,12 @@ const Earnings = () => {
   const [shareResult, setShareResult] = useState<string | null>(null)
   const [shareIsFlag, setShareIsFlag] = useState(false)
   const [meshPeers, setMeshPeers] = useState<number>(0)
+  const [walletName, setWalletName] = useState<string>(() => localStorage.getItem('sb_wallet_name') || 'default')
+  const [walletNameInput, setWalletNameInput] = useState<string>(walletName)
+  const [balance, setBalance] = useState<WalletBalance | null>(null)
+  const [balanceLoading, setBalanceLoading] = useState(false)
+  const [position, setPosition] = useState<ValidatorPosition | null>(null)
+  const [positionLoading, setPositionLoading] = useState(false)
 
   // Load hotkey from localStorage
   useEffect(() => {
@@ -133,6 +172,56 @@ const Earnings = () => {
     const interval = setInterval(fetchValidatorLog, 15000)
     return () => clearInterval(interval)
   }, [fetchValidatorLog])
+
+  // Real on-chain coldkey balance via btcli
+  const fetchBalance = useCallback(async () => {
+    setBalanceLoading(true)
+    try {
+      const res = await window.electron.invoke('earnings:wallet-balance', walletName, 'finney')
+      setBalance(res)
+    } catch (e) {
+      setBalance({ ok: false, error: (e as Error).message })
+    } finally {
+      setBalanceLoading(false)
+    }
+  }, [walletName])
+
+  // Frankfurt validator position from /metagraph (UID 1 = validator)
+  const fetchPosition = useCallback(async () => {
+    setPositionLoading(true)
+    try {
+      const res = await window.electron.invoke('earnings:validator-position', 1)
+      setPosition(res)
+    } catch (e) {
+      setPosition({ ok: false, error: (e as Error).message })
+    } finally {
+      setPositionLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { fetchBalance() }, [fetchBalance])
+  useEffect(() => {
+    fetchPosition()
+    const interval = setInterval(fetchPosition, 60000)
+    return () => clearInterval(interval)
+  }, [fetchPosition])
+
+  const saveWalletName = () => {
+    const trimmed = walletNameInput.trim()
+    if (trimmed) {
+      localStorage.setItem('sb_wallet_name', trimmed)
+      setWalletName(trimmed)
+    }
+  }
+
+  const formatTao = (n?: number) => (typeof n === 'number' ? n.toFixed(6) : '-')
+  const timeAgo = (ts?: number) => {
+    if (!ts) return '-'
+    const sec = Math.floor((Date.now() - ts) / 1000)
+    if (sec < 60) return `${sec}s ago`
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+    return `${Math.floor(sec / 3600)}h ago`
+  }
 
   const saveHotkey = () => {
     const trimmed = hotkeyInput.trim()
@@ -266,6 +355,148 @@ const Earnings = () => {
           <p className={`text-xs mt-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
             Your public Bittensor hotkey (ss58 address). Never enter your seed phrase here.
           </p>
+        </div>
+
+        {/* ── SECTION 1b: REAL ON-CHAIN BALANCE + FRANKFURT POSITION ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+          {/* Real coldkey balance via btcli */}
+          <div className={`rounded-lg border p-5 ${dark ? 'bg-card border-border' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-4 h-4 text-emerald-400" />
+                <h2 className={`text-sm font-semibold ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Real On-Chain Balance
+                </h2>
+              </div>
+              <button
+                onClick={fetchBalance}
+                disabled={balanceLoading}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                  dark ? 'border-border text-gray-400 hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                } disabled:opacity-40`}
+              >
+                <RefreshCw className={`w-3 h-3 ${balanceLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            <div className="flex gap-2 mb-3">
+              <input
+                type="text"
+                value={walletNameInput}
+                onChange={(e) => setWalletNameInput(e.target.value)}
+                placeholder="wallet name (e.g. default)"
+                className={`flex-1 px-2.5 py-1.5 rounded-md text-xs font-mono border ${
+                  dark
+                    ? 'bg-background border-border text-white placeholder:text-gray-600'
+                    : 'bg-gray-50 border-gray-300 text-gray-900 placeholder:text-gray-400'
+                }`}
+                onKeyDown={(e) => e.key === 'Enter' && saveWalletName()}
+              />
+              <button
+                onClick={saveWalletName}
+                className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-md hover:bg-emerald-700 transition-colors"
+              >
+                Load
+              </button>
+            </div>
+
+            {balance?.ok ? (
+              <>
+                <div className="grid grid-cols-3 gap-3 mb-2">
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Free</div>
+                    <div className="text-lg font-bold text-emerald-400 font-mono">{formatTao(balance.free)} τ</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Staked</div>
+                    <div className="text-lg font-bold text-purple-400 font-mono">{formatTao(balance.staked)} τ</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Total</div>
+                    <div className="text-lg font-bold text-yellow-400 font-mono">{formatTao(balance.total)} τ</div>
+                  </div>
+                </div>
+                <div className={`text-[10px] font-mono break-all ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  coldkey: {balance.coldkey}
+                </div>
+                <div className={`text-[10px] mt-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
+                  network: {balance.network} · updated {timeAgo(balance.fetchedAt)}
+                </div>
+              </>
+            ) : balanceLoading ? (
+              <div className={`text-xs py-4 text-center ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Querying chain via btcli...
+              </div>
+            ) : (
+              <div className={`text-xs py-3 ${dark ? 'text-red-400/80' : 'text-red-600/80'}`}>
+                {balance?.error || 'No balance yet — click Refresh.'}
+              </div>
+            )}
+          </div>
+
+          {/* Frankfurt validator on-chain position */}
+          <div className={`rounded-lg border p-5 ${dark ? 'bg-card border-border' : 'bg-white border-gray-200'}`}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Radio className="w-4 h-4 text-cyan-400" />
+                <h2 className={`text-sm font-semibold ${dark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Frankfurt Validator Position (SN442)
+                </h2>
+              </div>
+              <button
+                onClick={fetchPosition}
+                disabled={positionLoading}
+                className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded-md border transition-colors ${
+                  dark ? 'border-border text-gray-400 hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:bg-gray-100'
+                } disabled:opacity-40`}
+              >
+                <RefreshCw className={`w-3 h-3 ${positionLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+            </div>
+
+            {position?.ok && position.validator ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Validator UID {position.validator.uid} · Stake</div>
+                    <div className="text-lg font-bold text-cyan-400 font-mono">{position.validator.stake.toFixed(2)} τ</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Emissions / tempo</div>
+                    <div className="text-lg font-bold text-yellow-400 font-mono">{position.validator.emissions.toFixed(4)} τ</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Dividends</div>
+                    <div className="text-lg font-bold text-emerald-400 font-mono">{position.validator.dividends.toFixed(3)}</div>
+                  </div>
+                  <div>
+                    <div className={`text-[10px] uppercase tracking-wider ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Serving</div>
+                    <div className={`text-lg font-bold font-mono ${position.validator.is_serving ? 'text-green-400' : 'text-red-400'}`}>
+                      {position.validator.is_serving ? 'yes' : 'no'}
+                    </div>
+                  </div>
+                </div>
+                {position.miner && (
+                  <div className={`text-[11px] mt-2 pt-2 border-t ${dark ? 'border-border text-gray-400' : 'border-gray-200 text-gray-500'}`}>
+                    miner UID {position.miner.uid}: incentive {position.miner.incentive.toFixed(3)} · emissions {position.miner.emissions.toFixed(4)} τ
+                  </div>
+                )}
+                <div className={`text-[10px] mt-1 ${dark ? 'text-gray-600' : 'text-gray-400'}`}>
+                  source: 46.225.114.202/metagraph · updated {timeAgo(position.fetchedAt)}
+                </div>
+              </>
+            ) : positionLoading ? (
+              <div className={`text-xs py-4 text-center ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                Fetching metagraph...
+              </div>
+            ) : (
+              <div className={`text-xs py-3 ${dark ? 'text-red-400/80' : 'text-red-600/80'}`}>
+                {position?.error || 'Metagraph unreachable'}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── SECTION 3: EARNINGS CARDS ── */}

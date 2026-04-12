@@ -4,7 +4,7 @@ import { registerWindowIPC } from '@/lib/window/ipcEvents'
 import appIcon from '@/resources/build/supericon.png'
 import { pathToFileURL } from 'url'
 import os from 'os'
-import { execSync, exec, spawn, ChildProcess } from 'child_process'
+import { execSync, exec, execFile, spawn, ChildProcess } from 'child_process'
 import crypto from 'crypto'
 import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
@@ -25,6 +25,7 @@ import {
   writeStore
 } from '../chat/chatStore'
 import { getBittensorStats, loadWalletConfig, saveWalletConfig, registerBittensorWallet, downloadMinerScript } from '../bittensor/eventHandler'
+import { getBtcliPathSafe } from '../bittensor/btcliPath'
 import { miningService } from '../bittensor/miningService'
 import { WalletConfig } from '../bittensor/types'
 import { subnetMinerService } from '../bittensor/subnetMinerService'
@@ -1090,6 +1091,59 @@ ipcMain.handle('earnings:get', async (_event, hotkey: string) => {
     return await resp.json()
   } catch {
     return { error: 'Frankfurt unreachable', chunks: [], total_chunks: 0, total_retrievals: 0 }
+  }
+})
+
+// Real on-chain coldkey balance via btcli (finney/mainnet by default).
+// Returns { ok, walletName, coldkey, free, staked, total, fetchedAt } or { ok:false, error }.
+ipcMain.handle('earnings:wallet-balance', async (_event, walletName = 'default', network = 'finney') => {
+  const btp = getBtcliPathSafe()
+  if (!btp.success || !btp.btcliPath) return { ok: false, error: btp.error || 'btcli not found' }
+  return await new Promise((resolve) => {
+    execFile(
+      btp.btcliPath as string,
+      ['wallet', 'balance', '--wallet.name', walletName, '--subtensor.network', network, '--json-out'],
+      { timeout: 20000, maxBuffer: 4 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err) return resolve({ ok: false, error: err.message })
+        try {
+          const start = stdout.indexOf('{')
+          const end = stdout.lastIndexOf('}')
+          if (start < 0 || end <= start) return resolve({ ok: false, error: 'no JSON in btcli output' })
+          const parsed = JSON.parse(stdout.slice(start, end + 1))
+          const entry = parsed.balances?.[walletName]
+          if (!entry) return resolve({ ok: false, error: `wallet '${walletName}' not in btcli output` })
+          resolve({
+            ok: true,
+            walletName,
+            network,
+            coldkey: entry.coldkey,
+            free: entry.free,
+            staked: entry.staked,
+            total: entry.total,
+            fetchedAt: Date.now(),
+          })
+        } catch (e) {
+          resolve({ ok: false, error: (e as Error).message })
+        }
+      },
+    )
+  })
+})
+
+// Frankfurt validator/miner live position from the SN442 demo API.
+// Returns the requested UID row (default UID 1 = our validator) plus whichever
+// UID currently has incentive > 0 (our miner) so the UI can show both.
+ipcMain.handle('earnings:validator-position', async (_event, uid = 1) => {
+  try {
+    const resp = await fetch('http://46.225.114.202:8400/metagraph', { signal: AbortSignal.timeout(10000) })
+    const data = await resp.json()
+    const nodes: any[] = data.nodes || []
+    const validator = nodes.find((n) => n.uid === uid) || null
+    const miner = nodes.find((n) => typeof n.incentive === 'number' && n.incentive > 0) || null
+    return { ok: true, validator, miner, fetchedAt: Date.now() }
+  } catch (e) {
+    return { ok: false, error: (e as Error).message }
   }
 })
 
