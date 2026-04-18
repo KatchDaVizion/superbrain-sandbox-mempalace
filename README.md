@@ -30,8 +30,8 @@ SuperBrain AI is a **desktop AI chat application** built with **ElectronJS** and
 ## Installation
 
 ```bash
-git clone https://github.com/KatchDaVizion/superbrain-desktop-work.git
-cd superbrain-desktop-work
+git clone https://github.com/KatchDaVizion/superbrain-sandbox-mempalace.git
+cd superbrain-sandbox-mempalace/desktop
 npm install
 ```
 
