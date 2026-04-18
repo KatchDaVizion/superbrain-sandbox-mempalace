@@ -4,7 +4,7 @@ import { registerWindowIPC } from '@/lib/window/ipcEvents'
 import appIcon from '@/resources/build/supericon.png'
 import { pathToFileURL } from 'url'
 import os from 'os'
-import { execSync, exec, execFile, spawn, ChildProcess } from 'child_process'
+import { execSync, exec, execFile } from 'child_process'
 import crypto from 'crypto'
 import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
@@ -136,115 +136,6 @@ app.whenReady().then(async () => {
   }
 })
 
-// -----------------------
-// INIT P2P SYNC SERVICE + PUBLIC TUNNEL (ngrok)
-// -----------------------
-// Replaces the previous localtunnel implementation. ngrok is more reliable
-// (custom subdomains via paid plan, no random subdomain churn) but requires
-// a one-time `ngrok config add-authtoken <TOKEN>` setup. If the authtoken is
-// missing, we degrade gracefully — chat continues, only the public P2P URL
-// is unavailable.
-let tunnelUrl: string | null = null
-let ngrokProcess: ChildProcess | null = null
-let ngrokHealthInterval: NodeJS.Timeout | null = null
-
-async function fetchNgrokPublicUrl(): Promise<string | null> {
-  // Local ngrok daemon exposes a REST API on :4040 listing live tunnels.
-  try {
-    const r = await fetch('http://localhost:4040/api/tunnels')
-    if (!r.ok) return null
-    const data = (await r.json()) as { tunnels?: Array<{ public_url?: string }> }
-    const tunnels = data?.tunnels || []
-    // Prefer https, fall back to first tunnel.
-    const httpsT = tunnels.find((t) => t.public_url?.startsWith('https://'))
-    return httpsT?.public_url || tunnels[0]?.public_url || null
-  } catch {
-    return null
-  }
-}
-
-async function spawnNgrokAndWait(): Promise<string | null> {
-  // Tear down any prior process before respawning.
-  if (ngrokProcess && !ngrokProcess.killed) {
-    try { ngrokProcess.kill('SIGTERM') } catch { /* noop */ }
-  }
-
-  try {
-    ngrokProcess = spawn('ngrok', ['http', '8500', '--log=stdout'], {
-      stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
-    })
-  } catch (err) {
-    // ENOENT — ngrok binary missing on this machine.
-    console.warn('[P2P] ngrok not installed:', (err as Error).message)
-    return null
-  }
-
-  let authError = false
-  ngrokProcess.stderr?.on('data', (chunk) => {
-    const msg = chunk.toString()
-    if (msg.includes('ERR_NGROK_4018') || msg.includes('authtoken')) {
-      if (!authError) {
-        authError = true
-        console.warn('[P2P] ngrok requires authtoken — run: ngrok config add-authtoken <TOKEN>')
-      }
-    }
-  })
-  ngrokProcess.on('exit', (code) => {
-    if (code !== 0 && code !== null) {
-      console.log(`[P2P] ngrok exited (code ${code})`)
-    }
-  })
-
-  // Poll the local API for up to 5 seconds (10 × 500ms) for the URL to appear.
-  for (let i = 0; i < 10; i++) {
-    await new Promise((r) => setTimeout(r, 500))
-    if (authError) return null
-    const url = await fetchNgrokPublicUrl()
-    if (url) return url
-  }
-  return null
-}
-
-async function startPublicTunnel(): Promise<string | null> {
-  const url = await spawnNgrokAndWait()
-  if (!url) {
-    console.warn('[P2P] No public tunnel available — chat continues offline. To enable: install ngrok and run `ngrok config add-authtoken <TOKEN>`')
-    return null
-  }
-  console.log(`[P2P] ngrok tunnel: ${url}`)
-
-  // Register public URL with Frankfurt seed (best-effort, fire-and-forget).
-  fetch('http://46.225.114.202:8400/announce', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url, node_id: `sb-${os.hostname()}` }),
-  }).catch(() => { /* Frankfurt offline — chat continues */ })
-
-  // Health check every 60s. If the tunnel disappeared, respawn ngrok.
-  if (ngrokHealthInterval) clearInterval(ngrokHealthInterval)
-  ngrokHealthInterval = setInterval(async () => {
-    const liveUrl = await fetchNgrokPublicUrl()
-    if (!liveUrl) {
-      console.warn('[P2P] ngrok tunnel dead — respawning')
-      const newUrl = await spawnNgrokAndWait()
-      if (newUrl) {
-        tunnelUrl = newUrl
-        p2pSync.setPublicUrl(newUrl)
-        console.log(`[P2P] ngrok tunnel respawned: ${newUrl}`)
-        // Re-announce to Frankfurt with the new URL.
-        fetch('http://46.225.114.202:8400/announce', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: newUrl, node_id: `sb-${os.hostname()}` }),
-        }).catch(() => {})
-      }
-    }
-  }, 60_000)
-
-  return url
-}
-
 app.whenReady().then(async () => {
   // Start P2P sync service
   p2pSync.start().catch(err => console.warn('[P2P] Start failed:', err))
@@ -262,14 +153,8 @@ app.whenReady().then(async () => {
     }
   })
 
-  p2pSync.on('ready', async ({ nodeId, url }: { nodeId: string, url: string }) => {
+  p2pSync.on('ready', ({ nodeId, url }: { nodeId: string, url: string }) => {
     console.log(`[P2P] Ready — ${nodeId} at ${url}`)
-
-    // Auto-start public tunnel after P2P local server is up
-    tunnelUrl = await startPublicTunnel()
-    if (tunnelUrl) {
-      p2pSync.setPublicUrl(tunnelUrl)
-    }
   })
 
   // Start the Hyperswarm mesh layer (silent fail — Frankfurt remains authoritative)
@@ -319,22 +204,13 @@ app.whenReady().then(async () => {
   })()
 })
 
-ipcMain.handle('p2p:public-url', () => tunnelUrl)
+ipcMain.handle('p2p:public-url', () => null)
 ipcMain.handle('mesh:status', () => mesh.getStats())
 
 app.on('before-quit', async () => {
   await p2pSync.stop()
   await zimService.stop()
   await mesh.stop()
-  // Stop ngrok cleanly so we don't leak the tunnel.
-  if (ngrokHealthInterval) {
-    clearInterval(ngrokHealthInterval)
-    ngrokHealthInterval = null
-  }
-  if (ngrokProcess && !ngrokProcess.killed) {
-    try { ngrokProcess.kill('SIGTERM') } catch { /* noop */ }
-    ngrokProcess = null
-  }
 })
 
 // -----------------------
