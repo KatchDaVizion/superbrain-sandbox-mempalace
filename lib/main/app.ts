@@ -593,46 +593,28 @@ ipcMain.handle(
     const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
       if (options.searchOnly) {
-        // Honest client-side keyword search over /feed. Frankfurt has no
-        // dedicated search endpoint; /knowledge/list is rowid-DESC and does no
-        // filtering. We pull a 500-chunk window, grep the query terms across
-        // title + preview, score by term-frequency, and return top-K with
-        // real timestamps and categories.
-        const resp = await fetch(`${SN442}/feed?limit=500`, { signal: AbortSignal.timeout(10000) })
+        // Real network search: POST to Frankfurt /query which runs extractive
+        // keyword scoring (title+content) across the ENTIRE public_chunks
+        // table — not just a recent /feed window. The endpoint returns top-3
+        // sources with full metadata (title, source URL, preview, timestamp,
+        // category, content_hash, hotkey, node_id) which we map 1:1 to
+        // NetworkSource so the renderer can show honest cards.
+        const resp = await fetch(`${SN442}/query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: query, mode: 'auto' }),
+          signal: AbortSignal.timeout(20000),
+        })
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
-        const chunks: any[] = data.chunks || []
-        const terms = query
-          .toLowerCase()
-          .split(/\s+/)
-          .map(t => t.trim())
-          .filter(t => t.length >= 2)
-        if (terms.length === 0) return { results: [] }
-
-        const scored = chunks
-          .map(c => {
-            const hay = `${c.title || ''}\n${c.preview || ''}`.toLowerCase()
-            let hits = 0
-            for (const t of terms) {
-              // Count matches per term; break-insensitive so "jazz" matches "jazz" and "jazzy".
-              const matches = hay.split(t).length - 1
-              hits += matches
-            }
-            return { c, hits }
-          })
-          .filter(r => r.hits > 0)
-          .sort((a, b) => b.hits - a.hits || (b.c.timestamp || 0) - (a.c.timestamp || 0))
-          .slice(0, options.topK || 10)
-
-        const results = scored.map(({ c, hits }) => ({
-          content: c.preview || '',
-          content_hash: c.id || '',
-          score: hits,
-          relevance: hits,
-          freshness: 0,
-          source: c.title || 'Untitled',
-          timestamp: typeof c.timestamp === 'number' ? c.timestamp : 0,
-          node_id: c.node || 'frankfurt',
-          category: c.category || 'general',
+        const sources: any[] = data.sources || []
+        const results = sources.map((s: any) => ({
+          content: s.preview || '',
+          content_hash: s.content_hash || '',
+          source: s.title || s.source || 'Untitled',
+          timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
+          node_id: s.node_id || 'frankfurt',
+          category: s.category || 'general',
         }))
         return { results }
       }
@@ -643,14 +625,32 @@ ipcMain.handle(
         signal: AbortSignal.timeout(15000),
       })
       const data = await resp.json()
+      // Answer mode uses /query's rich `sources` array (title, preview, category,
+      // timestamp, content_hash, hotkey, node_id). Fall back to `citations` —
+      // plain title strings — only when `sources` is absent.
+      const sources: any[] = Array.isArray(data.sources) && data.sources.length
+        ? data.sources.map((s: any) => ({
+            content: s.preview || '',
+            content_hash: s.content_hash || '',
+            source: s.title || s.source || 'Untitled',
+            timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
+            node_id: s.node_id || 'frankfurt',
+            category: s.category || 'general',
+          }))
+        : (data.citations || []).map((c: any) => ({
+            content: typeof c === 'string' ? c : JSON.stringify(c),
+            content_hash: '',
+            source: typeof c === 'string' ? c : 'SN442',
+            timestamp: 0,
+            node_id: 'frankfurt',
+          }))
       return {
-        text: data.answer || '', citations: data.citations ? data.citations.map((_c: any, i: number) => i) : [],
-        sources: (data.citations || []).map((c: any) => ({
-          content: typeof c === 'string' ? c : JSON.stringify(c), content_hash: '', score: 1.0,
-          relevance: 1.0, freshness: 1.0, source: typeof c === 'string' ? c : 'SN442',
-          timestamp: Date.now() / 1000, node_id: 'frankfurt',
-        })),
-        method: data.method || 'network', query, generation_time: data.latency_ms || 0,
+        text: data.answer || '',
+        citations: data.citations ? data.citations.map((_c: any, i: number) => i) : [],
+        sources,
+        method: data.method || 'network',
+        query,
+        generation_time: data.latency_ms || 0,
       }
     } catch (error) {
       console.error('[NetworkRAG] Query failed:', (error as Error).message)

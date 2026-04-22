@@ -3,13 +3,13 @@ import { useState, useEffect, useCallback } from 'react'
 interface NetworkSource {
   content: string
   content_hash: string
-  score: number
-  relevance: number
-  freshness: number
   source: string
   timestamp: number
   node_id: string
   category?: string
+  score?: number
+  relevance?: number
+  freshness?: number
 }
 
 interface NetworkAnswer {

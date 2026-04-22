@@ -323,12 +323,17 @@ const NetworkKnowledge: React.FC = () => {
                       resolvedTheme === 'dark' ? 'bg-muted/50' : 'bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium">{s.source}</span>
-                      <span className="text-muted-foreground">
-                        Score: {(s.score * 100).toFixed(0)}%
+                    <div className="flex items-center justify-between gap-2 mb-1 text-xs text-muted-foreground">
+                      <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500">
+                        {prettyLabel((s as any).category || 'general')}
                       </span>
+                      {s.timestamp ? (
+                        <span title={new Date(s.timestamp * 1000).toISOString()}>
+                          {new Date(s.timestamp * 1000).toLocaleString()}
+                        </span>
+                      ) : null}
                     </div>
+                    <div className="font-medium mb-1 line-clamp-2">{s.source || 'Untitled'}</div>
                     <div className="text-muted-foreground line-clamp-2">{s.content}</div>
                   </div>
                 ))}
