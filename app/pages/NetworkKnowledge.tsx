@@ -1,11 +1,43 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { Globe, Search, Send, RefreshCcw, Database, Users, Clock, Zap, Rss } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import DashboardLayout from '../components/shared/DashboardLayout'
 import { useNetworkRAG } from '../hooks/useNetworkRAG'
 
-const FEED_CATEGORIES = ['all', 'ai', 'crypto', 'cybersecurity', 'academic', 'social'] as const
-type FeedCategory = typeof FEED_CATEGORIES[number]
+// Collapse e.g. "YOUTUBE_MUSIC_THEORY" → "YouTube" so the top-level pill groups
+// all YOUTUBE_* chunks. Backend does prefix match on this token.
+const groupKey = (raw: string): string => {
+  if (!raw) return 'general'
+  const head = raw.split('_')[0]
+  return head || 'general'
+}
+
+const prettyLabel = (raw: string): string => {
+  if (!raw || raw.toLowerCase() === 'all') return raw
+  const specials: Record<string, string> = {
+    ARXIV: 'arXiv',
+    YOUTUBE: 'YouTube',
+    HACKERNEWS: 'Hacker News',
+    STACKOVERFLOW: 'Stack Overflow',
+    PYPI: 'PyPI',
+    CVE: 'CVE',
+    RSS: 'RSS',
+    GITHUB: 'GitHub',
+    REDDIT: 'Reddit',
+    CODING: 'Coding',
+    WIKIPEDIA: 'Wikipedia',
+    PUBMED: 'PubMed',
+    BITCOIN: 'Bitcoin',
+    HUGGINGFACE: 'Hugging Face',
+    GOVERNMENT: 'Government',
+    CANADA: 'Canada',
+    DOCS: 'Docs',
+    GENERAL: 'General',
+    TEST: 'Test',
+  }
+  const parts = raw.split('_')
+  return parts.map(p => specials[p.toUpperCase()] ?? (p[0] + p.slice(1).toLowerCase())).join(' · ')
+}
 
 const NetworkKnowledge: React.FC = () => {
   const { theme, resolvedTheme } = useTheme()
@@ -17,6 +49,7 @@ const NetworkKnowledge: React.FC = () => {
     searchResults,
     feedItems,
     feedMeta,
+    availableCategories,
     askNetwork,
     searchNetwork,
     loadFeed,
@@ -25,7 +58,16 @@ const NetworkKnowledge: React.FC = () => {
 
   const [query, setQuery] = useState('')
   const [mode, setMode] = useState<'answer' | 'search' | 'feed'>('answer')
-  const [feedCategory, setFeedCategory] = useState<FeedCategory>('all')
+  const [feedCategory, setFeedCategory] = useState<string>('all')
+
+  // Build pill list from real categories seen on the wire.
+  // availableCategories is the raw list (e.g. YOUTUBE_MUSIC_THEORY, ARXIV_AI).
+  // We group by first token so the UI stays compact even with 20+ agents live.
+  const feedCategoryPills = useMemo<string[]>(() => {
+    const seen = new Set<string>(['all'])
+    for (const c of availableCategories) seen.add(groupKey(c))
+    return Array.from(seen)
+  }, [availableCategories])
 
   useEffect(() => {
     if (mode === 'feed') {
@@ -208,12 +250,12 @@ const NetworkKnowledge: React.FC = () => {
       {/* Feed category filter */}
       {mode === 'feed' && (
         <div className="flex flex-wrap gap-2 mb-4 items-center">
-          {FEED_CATEGORIES.map((c) => (
+          {feedCategoryPills.map((c) => (
             <button
               key={c}
               type="button"
               onClick={() => setFeedCategory(c)}
-              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors capitalize ${
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
                 feedCategory === c
                   ? 'bg-blue-600 text-white border-blue-600'
                   : resolvedTheme === 'dark'
@@ -221,7 +263,7 @@ const NetworkKnowledge: React.FC = () => {
                     : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
               }`}
             >
-              {c}
+              {c === 'all' ? 'All' : prettyLabel(c)}
             </button>
           ))}
           {feedMeta && (
@@ -309,15 +351,21 @@ const NetworkKnowledge: React.FC = () => {
                 resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
               }`}
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">{r.source}</span>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                  <span>Relevance: {(r.relevance * 100).toFixed(0)}%</span>
-                  <span>Freshness: {(r.freshness * 100).toFixed(0)}%</span>
-                  <span>Node: {r.node_id}</span>
-                </div>
+              <div className="flex items-center justify-between gap-2 mb-2 text-xs text-muted-foreground">
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500">
+                  {prettyLabel((r as any).category || 'general')}
+                </span>
+                {r.timestamp ? (
+                  <span title={new Date(r.timestamp * 1000).toISOString()}>
+                    {new Date(r.timestamp * 1000).toLocaleString()}
+                  </span>
+                ) : null}
               </div>
-              <div className="text-sm text-muted-foreground">{r.content}</div>
+              <div className="text-sm font-medium mb-1 line-clamp-2">{r.source || 'Untitled'}</div>
+              <div className="text-xs text-muted-foreground line-clamp-3 mb-2">{r.content}</div>
+              <div className="text-[10px] text-muted-foreground font-mono">
+                {r.node_id || 'frankfurt'}
+              </div>
             </div>
           ))}
         </div>
@@ -334,8 +382,8 @@ const NetworkKnowledge: React.FC = () => {
               }`}
             >
               <div className="flex items-center justify-between gap-2 mb-2 text-xs text-muted-foreground">
-                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 capitalize">
-                  {item.category || 'general'}
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500">
+                  {prettyLabel(item.category || 'general')}
                 </span>
                 <span title={new Date(item.timestamp * 1000).toISOString()}>
                   {new Date(item.timestamp * 1000).toLocaleString()}
@@ -354,7 +402,7 @@ const NetworkKnowledge: React.FC = () => {
 
       {mode === 'feed' && !isLoading && feedItems.length === 0 && !error && (
         <div className="text-center py-12 text-sm text-muted-foreground">
-          No feed items for category "{feedCategory}".
+          No feed items for {feedCategory === 'all' ? 'the last 24 hours' : `category "${prettyLabel(feedCategory)}"`}.
         </div>
       )}
 

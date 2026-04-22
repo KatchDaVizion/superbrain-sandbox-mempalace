@@ -9,6 +9,7 @@ interface NetworkSource {
   source: string
   timestamp: number
   node_id: string
+  category?: string
 }
 
 interface NetworkAnswer {
@@ -64,6 +65,7 @@ export function useNetworkRAG() {
   const [searchResults, setSearchResults] = useState<NetworkSource[]>([])
   const [feedItems, setFeedItems] = useState<FeedChunk[]>([])
   const [feedMeta, setFeedMeta] = useState<{ total: number; chunks_today: number } | null>(null)
+  const [availableCategories, setAvailableCategories] = useState<string[]>([])
 
   const refreshStats = useCallback(async () => {
     try {
@@ -79,6 +81,29 @@ export function useNetworkRAG() {
   useEffect(() => {
     refreshStats()
   }, [refreshStats])
+
+  // Probe the category set once on mount so the Feed pills can render before
+  // the user ever switches to Feed mode. A 200-row sample is enough to surface
+  // the top agents; more arrive as new chunks are ingested.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const probe: FeedResult = await window.NetworkRAGApi.feed({ limit: 200 })
+        if (cancelled) return
+        const seen = new Set<string>()
+        for (const c of probe.chunks || []) {
+          if (c.category) seen.add(c.category)
+        }
+        setAvailableCategories(Array.from(seen))
+      } catch {
+        /* category pills fall back to 'all' only */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const askNetwork = useCallback(async (query: string, topK = 5) => {
     setIsLoading(true)
@@ -122,6 +147,13 @@ export function useNetworkRAG() {
         if (result.error) setError(result.error)
         setFeedItems(result.chunks || [])
         setFeedMeta({ total: result.total, chunks_today: result.chunks_today })
+        // When loading the unfiltered feed, refresh the category pill set —
+        // new agents may have surfaced categories since the mount probe.
+        if (!options.category || options.category === 'all') {
+          const merged = new Set<string>()
+          for (const c of result.chunks || []) if (c.category) merged.add(c.category)
+          setAvailableCategories(prev => Array.from(new Set([...prev, ...merged])))
+        }
         return result.chunks || []
       } catch (e: any) {
         setError(e.message || 'Feed load failed')
@@ -165,6 +197,7 @@ export function useNetworkRAG() {
     searchResults,
     feedItems,
     feedMeta,
+    availableCategories,
     askNetwork,
     searchNetwork,
     loadFeed,

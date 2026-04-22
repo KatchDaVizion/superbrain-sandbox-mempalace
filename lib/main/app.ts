@@ -593,11 +593,46 @@ ipcMain.handle(
     const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
       if (options.searchOnly) {
-        const resp = await fetch(`${SN442}/knowledge/list`, { signal: AbortSignal.timeout(10000) })
+        // Honest client-side keyword search over /feed. Frankfurt has no
+        // dedicated search endpoint; /knowledge/list is rowid-DESC and does no
+        // filtering. We pull a 500-chunk window, grep the query terms across
+        // title + preview, score by term-frequency, and return top-K with
+        // real timestamps and categories.
+        const resp = await fetch(`${SN442}/feed?limit=500`, { signal: AbortSignal.timeout(10000) })
         const data = await resp.json()
-        const results = (data.chunks || []).slice(0, options.topK || 5).map((c: any) => ({
-          content: c.content_preview || '', content_hash: c.id || '', score: 1.0, relevance: 1.0,
-          freshness: 1.0, source: c.title || 'SN442', timestamp: Date.now() / 1000, node_id: 'frankfurt',
+        const chunks: any[] = data.chunks || []
+        const terms = query
+          .toLowerCase()
+          .split(/\s+/)
+          .map(t => t.trim())
+          .filter(t => t.length >= 2)
+        if (terms.length === 0) return { results: [] }
+
+        const scored = chunks
+          .map(c => {
+            const hay = `${c.title || ''}\n${c.preview || ''}`.toLowerCase()
+            let hits = 0
+            for (const t of terms) {
+              // Count matches per term; break-insensitive so "jazz" matches "jazz" and "jazzy".
+              const matches = hay.split(t).length - 1
+              hits += matches
+            }
+            return { c, hits }
+          })
+          .filter(r => r.hits > 0)
+          .sort((a, b) => b.hits - a.hits || (b.c.timestamp || 0) - (a.c.timestamp || 0))
+          .slice(0, options.topK || 10)
+
+        const results = scored.map(({ c, hits }) => ({
+          content: c.preview || '',
+          content_hash: c.id || '',
+          score: hits,
+          relevance: hits,
+          freshness: 0,
+          source: c.title || 'Untitled',
+          timestamp: typeof c.timestamp === 'number' ? c.timestamp : 0,
+          node_id: c.node || 'frankfurt',
+          category: c.category || 'general',
         }))
         return { results }
       }
