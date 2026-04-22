@@ -37,12 +37,33 @@ interface ShareResult {
   error?: string
 }
 
+export interface FeedChunk {
+  id: string
+  title: string
+  category: string
+  preview: string
+  hotkey: string
+  timestamp: number
+  source: string
+  node: string
+}
+
+interface FeedResult {
+  chunks: FeedChunk[]
+  total: number
+  chunks_today: number
+  last_updated: number | null
+  error?: string
+}
+
 export function useNetworkRAG() {
   const [stats, setStats] = useState<NetworkStats | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [answer, setAnswer] = useState<NetworkAnswer | null>(null)
   const [searchResults, setSearchResults] = useState<NetworkSource[]>([])
+  const [feedItems, setFeedItems] = useState<FeedChunk[]>([])
+  const [feedMeta, setFeedMeta] = useState<{ total: number; chunks_today: number } | null>(null)
 
   const refreshStats = useCallback(async () => {
     try {
@@ -92,6 +113,26 @@ export function useNetworkRAG() {
     }
   }, [])
 
+  const loadFeed = useCallback(
+    async (options: { limit?: number; category?: string; hours?: number } = {}): Promise<FeedChunk[]> => {
+      setIsLoading(true)
+      setError(null)
+      try {
+        const result: FeedResult = await window.NetworkRAGApi.feed({ limit: 30, ...options })
+        if (result.error) setError(result.error)
+        setFeedItems(result.chunks || [])
+        setFeedMeta({ total: result.total, chunks_today: result.chunks_today })
+        return result.chunks || []
+      } catch (e: any) {
+        setError(e.message || 'Feed load failed')
+        return []
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    []
+  )
+
   const shareToNetwork = useCallback(async (content: string, title?: string): Promise<ShareResult> => {
     try {
       const result = await window.NetworkRAGApi.shareText(content, title)
@@ -122,8 +163,11 @@ export function useNetworkRAG() {
     error,
     answer,
     searchResults,
+    feedItems,
+    feedMeta,
     askNetwork,
     searchNetwork,
+    loadFeed,
     shareToNetwork,
     shareFileToNetwork,
     refreshStats,

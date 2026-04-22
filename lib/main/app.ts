@@ -632,21 +632,90 @@ ipcMain.handle(
   async (_event, _options: { dbPath?: string } = {}): Promise<NetworkPoolStats> => {
     const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
-      const [healthResp, listResp, peersResp] = await Promise.all([
+      // /feed/stats is authoritative for total_chunks — /knowledge/list is truncated and
+      // /peers returns stale per-peer counters. See reference_frankfurt_endpoints.md.
+      const [healthResp, feedStatsResp, feedResp, peersResp] = await Promise.all([
         fetch(`${SN442}/health`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({})),
-        fetch(`${SN442}/knowledge/list`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({ chunks: [] })),
+        fetch(`${SN442}/feed/stats`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),
+        fetch(`${SN442}/feed?limit=1`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => null),
         fetch(`${SN442}/peers`, { signal: AbortSignal.timeout(5000) }).then(r => r.json()).catch(() => ({ peers: [] })),
       ])
-      const chunks = listResp.chunks || []
       const peers = peersResp.peers || []
+      const authoritativeTotal =
+        typeof feedStatsResp?.total_chunks === 'number' ? feedStatsResp.total_chunks :
+        typeof feedResp?.total === 'number' ? feedResp.total :
+        null
+      const newest = feedResp?.last_updated ?? (feedResp?.chunks?.[0]?.timestamp ?? null)
       return {
-        total_chunks: chunks.length, unique_nodes: peers.length + 1,
-        oldest_chunk: null, newest_chunk: null,
-        embedding_backend: 'frankfurt-api', ollama_available: healthResp.status === 'ok',
+        total_chunks: authoritativeTotal ?? 0,
+        unique_nodes: peers.length + 1,
+        oldest_chunk: null,
+        newest_chunk: typeof newest === 'number' ? newest : null,
+        embedding_backend: 'frankfurt-api',
+        ollama_available: healthResp.status === 'ok',
       }
     } catch (error) {
       console.error('[NetworkRAG] Stats failed:', (error as Error).message)
       return { total_chunks: 0, unique_nodes: 0, oldest_chunk: null, newest_chunk: null, embedding_backend: 'offline', ollama_available: false }
+    }
+  }
+)
+
+ipcMain.handle(
+  'superbrain:network:i2p-status',
+  async (): Promise<{
+    installed: boolean
+    sam_listening: boolean
+    sam_handshake_ok: boolean
+    http_proxy_listening: boolean
+    netdb_routers: number
+    sam_clients_connected: number
+    routing_ok: boolean
+    reachable: boolean
+    error?: string
+  }> => {
+    const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
+    try {
+      const r = await fetch(`${SN442}/i2p/status`, { signal: AbortSignal.timeout(6000) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const d = await r.json()
+      return {
+        installed: !!d.installed,
+        sam_listening: !!d.sam_listening,
+        sam_handshake_ok: !!d.sam_handshake_ok,
+        http_proxy_listening: !!d.http_proxy_listening,
+        netdb_routers: typeof d.netdb_routers === 'number' ? d.netdb_routers : 0,
+        sam_clients_connected: typeof d.sam_clients_connected === 'number' ? d.sam_clients_connected : 0,
+        routing_ok: !!d.routing_ok,
+        reachable: true,
+      }
+    } catch (error) {
+      console.error('[NetworkRAG] i2p-status failed:', (error as Error).message)
+      return {
+        installed: false, sam_listening: false, sam_handshake_ok: false,
+        http_proxy_listening: false, netdb_routers: 0, sam_clients_connected: 0,
+        routing_ok: false, reachable: false, error: (error as Error).message,
+      }
+    }
+  }
+)
+
+ipcMain.handle(
+  'superbrain:network:feed',
+  async (_event, opts: { limit?: number; category?: string; hours?: number } = {}) => {
+    const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
+    const params = new URLSearchParams()
+    if (opts.limit) params.set('limit', String(opts.limit))
+    if (opts.category && opts.category !== 'all') params.set('category', opts.category)
+    if (opts.hours) params.set('hours', String(opts.hours))
+    const qs = params.toString() ? `?${params.toString()}` : ''
+    try {
+      const r = await fetch(`${SN442}/feed${qs}`, { signal: AbortSignal.timeout(10000) })
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      return await r.json()
+    } catch (error) {
+      console.error('[NetworkRAG] Feed failed:', (error as Error).message)
+      return { chunks: [], total: 0, chunks_today: 0, last_updated: null, error: (error as Error).message }
     }
   }
 )

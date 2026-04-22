@@ -1,8 +1,11 @@
-import React, { useState } from 'react'
-import { Globe, Search, Send, RefreshCcw, Database, Users, Clock, Zap } from 'lucide-react'
+import React, { useState, useEffect } from 'react'
+import { Globe, Search, Send, RefreshCcw, Database, Users, Clock, Zap, Rss } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import DashboardLayout from '../components/shared/DashboardLayout'
 import { useNetworkRAG } from '../hooks/useNetworkRAG'
+
+const FEED_CATEGORIES = ['all', 'ai', 'crypto', 'cybersecurity', 'academic', 'social'] as const
+type FeedCategory = typeof FEED_CATEGORIES[number]
 
 const NetworkKnowledge: React.FC = () => {
   const { theme, resolvedTheme } = useTheme()
@@ -12,16 +15,30 @@ const NetworkKnowledge: React.FC = () => {
     error,
     answer,
     searchResults,
+    feedItems,
+    feedMeta,
     askNetwork,
     searchNetwork,
+    loadFeed,
     refreshStats,
   } = useNetworkRAG()
 
   const [query, setQuery] = useState('')
-  const [mode, setMode] = useState<'answer' | 'search'>('answer')
+  const [mode, setMode] = useState<'answer' | 'search' | 'feed'>('answer')
+  const [feedCategory, setFeedCategory] = useState<FeedCategory>('all')
+
+  useEffect(() => {
+    if (mode === 'feed') {
+      loadFeed({ category: feedCategory, limit: 30 })
+    }
+  }, [mode, feedCategory, loadFeed])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (mode === 'feed') {
+      await loadFeed({ category: feedCategory, limit: 30 })
+      return
+    }
     if (!query.trim() || isLoading) return
     if (mode === 'answer') {
       await askNetwork(query)
@@ -162,6 +179,20 @@ const NetworkKnowledge: React.FC = () => {
             >
               Search
             </button>
+            <button
+              type="button"
+              onClick={() => setMode('feed')}
+              className={`px-3 py-3 text-sm font-medium transition-colors flex items-center gap-1 ${
+                mode === 'feed'
+                  ? 'bg-blue-600 text-white'
+                  : resolvedTheme === 'dark'
+                    ? 'bg-card/50 text-muted-foreground hover:bg-muted'
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              <Rss className="w-4 h-4" />
+              Feed
+            </button>
           </div>
 
           <button
@@ -173,6 +204,33 @@ const NetworkKnowledge: React.FC = () => {
           </button>
         </div>
       </form>
+
+      {/* Feed category filter */}
+      {mode === 'feed' && (
+        <div className="flex flex-wrap gap-2 mb-4 items-center">
+          {FEED_CATEGORIES.map((c) => (
+            <button
+              key={c}
+              type="button"
+              onClick={() => setFeedCategory(c)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-colors capitalize ${
+                feedCategory === c
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : resolvedTheme === 'dark'
+                    ? 'bg-card/50 border-border text-muted-foreground hover:border-blue-400'
+                    : 'bg-white border-gray-300 text-gray-600 hover:border-blue-400'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+          {feedMeta && (
+            <span className="text-xs text-muted-foreground ml-auto">
+              {feedMeta.chunks_today} today / {feedMeta.total.toLocaleString()} total
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Loading */}
       {isLoading && (
@@ -265,8 +323,43 @@ const NetworkKnowledge: React.FC = () => {
         </div>
       )}
 
+      {/* Feed items */}
+      {mode === 'feed' && !isLoading && feedItems.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {feedItems.map((item) => (
+            <div
+              key={item.id}
+              className={`p-4 rounded-xl border ${
+                resolvedTheme === 'dark' ? 'bg-card/50 border-border' : 'bg-white border-gray-200 shadow-sm'
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2 mb-2 text-xs text-muted-foreground">
+                <span className="px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 capitalize">
+                  {item.category || 'general'}
+                </span>
+                <span title={new Date(item.timestamp * 1000).toISOString()}>
+                  {new Date(item.timestamp * 1000).toLocaleString()}
+                </span>
+              </div>
+              <h4 className="text-sm font-medium mb-1 line-clamp-2">{item.title || 'Untitled'}</h4>
+              <p className="text-xs text-muted-foreground line-clamp-3 mb-2">{item.preview}</p>
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                <span>{item.hotkey || 'anon'}</span>
+                <span>{item.node}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {mode === 'feed' && !isLoading && feedItems.length === 0 && !error && (
+        <div className="text-center py-12 text-sm text-muted-foreground">
+          No feed items for category "{feedCategory}".
+        </div>
+      )}
+
       {/* Empty State */}
-      {!isLoading && !answer && searchResults.length === 0 && !error && (
+      {mode !== 'feed' && !isLoading && !answer && searchResults.length === 0 && !error && (
         <div className="text-center py-16">
           <Globe
             className={`w-16 h-16 mx-auto mb-4 ${resolvedTheme === 'dark' ? 'text-muted-foreground/30' : 'text-gray-300'}`}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import DashboardLayout from "../components/shared/DashboardLayout"
 import { useTheme } from "next-themes"
-import { Shield, Wifi, Activity, Globe, Eye, EyeOff } from "lucide-react"
+import { Shield, Wifi, Activity, Globe, Eye, EyeOff, Map as MapIcon } from "lucide-react"
+import GlobeView from "../components/map/Globe"
 
 type NodeRole = "seed" | "validator" | "miner" | "peer" | "local"
 
@@ -124,6 +125,11 @@ interface PeersResponse {
   total_chunks?: number
 }
 
+interface FeedStatsResponse {
+  total_chunks?: number
+  chunks_today?: number
+}
+
 const FRANKFURT_API = "http://46.225.114.202:8400"
 
 async function fetchWithTimeout<T>(url: string, ms: number): Promise<T | null> {
@@ -151,10 +157,11 @@ function parseCityFromPeer(peer: PeerInfo): { city: string; country: string } {
   return { city: cityPart || "Unknown", country: (countryPart || "").slice(0, 2).toUpperCase() }
 }
 
-async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Connection[] }> {
-  const [metagraph, peersResp] = await Promise.all([
+async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Connection[]; totalChunks: number | null }> {
+  const [metagraph, peersResp, feedStats] = await Promise.all([
     fetchWithTimeout<MetagraphResponse>(`${FRANKFURT_API}/metagraph`, 20000),
     fetchWithTimeout<PeersResponse>(`${FRANKFURT_API}/peers`, 8000),
+    fetchWithTimeout<FeedStatsResponse>(`${FRANKFURT_API}/feed/stats`, 6000),
   ])
 
   const peers = peersResp?.peers ?? []
@@ -301,7 +308,8 @@ async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Conne
     })
   }
 
-  return { nodes, connections }
+  const totalChunks = typeof feedStats?.total_chunks === "number" ? feedStats.total_chunks : null
+  return { nodes, connections, totalChunks }
 }
 
 function groupNodes(nodes: NetworkNode[]): MapMarker[] {
@@ -397,15 +405,25 @@ export default function NodeMap() {
   const [privacyMode, setPrivacyMode] = useState(true)
   const [stats, setStats] = useState({ nodes: 0, chunks: 0, connections: 0 })
   const [publicUrl, setPublicUrl] = useState<string | null>(null)
+  const [view, setView] = useState<"map" | "globe">("map")
+  const [i2p, setI2p] = useState<{
+    routing_ok: boolean
+    sam_handshake_ok: boolean
+    netdb_routers: number
+    reachable: boolean
+  } | null>(null)
   const isDark = resolvedTheme === "dark"
 
   useEffect(() => {
-    loadNetwork().then(({ nodes: n, connections: c }) => {
+    loadNetwork().then(({ nodes: n, connections: c, totalChunks }) => {
       setNodes(n)
       setConnections(c)
+      // Prefer the authoritative /feed/stats total; fall back to sum of per-peer chunkCount
+      // only if feed/stats is unreachable (peer counters are stale, so this is a degraded mode).
+      const sumFromPeers = n.reduce((a, b) => a + b.chunkCount, 0)
       setStats({
         nodes: n.length,
-        chunks: n.reduce((a, b) => a + b.chunkCount, 0),
+        chunks: totalChunks ?? sumFromPeers,
         connections: c.filter(x => x.active).length,
       })
     })
@@ -414,7 +432,38 @@ export default function NodeMap() {
       .catch(() => {})
   }, [])
 
+  // Real I2P status — polled every 30 s. Green dot requires SAM handshake + >=50 netDb routers.
   useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const s = await (window as any).NetworkRAGApi?.i2pStatus?.()
+        if (cancelled || !s) return
+        setI2p({
+          routing_ok: !!s.routing_ok,
+          sam_handshake_ok: !!s.sam_handshake_ok,
+          netdb_routers: typeof s.netdb_routers === "number" ? s.netdb_routers : 0,
+          reachable: !!s.reachable,
+        })
+      } catch {
+        if (!cancelled) setI2p({ routing_ok: false, sam_handshake_ok: false, netdb_routers: 0, reachable: false })
+      }
+    }
+    load()
+    const iv = setInterval(load, 30000)
+    return () => { cancelled = true; clearInterval(iv) }
+  }, [])
+
+  useEffect(() => {
+    if (view !== "map") {
+      // When toggling away from the Leaflet view, tear down the map so the Globe
+      // canvas has a clean container and no orphan listeners linger.
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
+      return
+    }
     if (!mapRef.current || nodes.length === 0) return
 
     const initMap = async () => {
@@ -515,7 +564,7 @@ export default function NodeMap() {
         mapInstanceRef.current = null
       }
     }
-  }, [nodes, connections, filter, isDark, publicUrl, privacyMode])
+  }, [nodes, connections, filter, isDark, publicUrl, privacyMode, view])
 
   return (
     <DashboardLayout>
@@ -530,6 +579,33 @@ export default function NodeMap() {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* View toggle — Map (Leaflet, real geo tiles) or Globe (3D sphere, offline-safe) */}
+            <div className={`flex items-center rounded-full border overflow-hidden ${isDark ? "border-gray-700" : "border-gray-300"}`}>
+              <button
+                onClick={() => setView("map")}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1 transition-all ${
+                  view === "map"
+                    ? "bg-indigo-500/20 text-indigo-300"
+                    : isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"
+                }`}
+                title="2D map with real geography"
+              >
+                <MapIcon className="w-3 h-3" />
+                Map
+              </button>
+              <button
+                onClick={() => setView("globe")}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1 transition-all ${
+                  view === "globe"
+                    ? "bg-indigo-500/20 text-indigo-300"
+                    : isDark ? "text-gray-500 hover:text-gray-300" : "text-gray-500 hover:text-gray-700"
+                }`}
+                title="3D rotating globe"
+              >
+                <Globe className="w-3 h-3" />
+                Globe
+              </button>
+            </div>
             <button
               onClick={() => setPrivacyMode(!privacyMode)}
               className={`flex items-center gap-1.5 text-xs px-3 py-1 rounded-full border transition-all ${
@@ -600,7 +676,32 @@ export default function NodeMap() {
               100% { transform: scale(0.8); opacity: 0.8; }
             }
           `}</style>
-          <div ref={mapRef} className="w-full h-full" style={{ zIndex: 1 }} />
+          {view === "map" ? (
+            <div ref={mapRef} className="w-full h-full" style={{ zIndex: 1 }} />
+          ) : (
+            <div className="w-full h-full" style={{ zIndex: 1 }}>
+              <GlobeView
+                nodes={nodes
+                  .filter((n) => filter === "all" || n.syncLayer === filter)
+                  .map((n) => ({
+                    id: n.id,
+                    label: n.label,
+                    lat: n.lat,
+                    lng: n.lng,
+                    role: n.role,
+                    chunkCount: n.chunkCount,
+                    isCurrentNode: n.isCurrentNode,
+                    hotkey: n.hotkey,
+                    city: n.city,
+                  }))}
+                connections={connections
+                  .filter((c) => filter === "all" || c.layer === filter)
+                  .map((c) => ({ fromKey: c.fromKey, toKey: c.toKey, active: c.active }))}
+                isDark={isDark}
+                privacyMode={privacyMode}
+              />
+            </div>
+          )}
 
           {/* Bottom-left info */}
           <div className={`absolute bottom-4 left-4 text-xs font-mono ${isDark ? "text-gray-600" : "text-gray-400"} space-y-1`}>
@@ -618,10 +719,37 @@ export default function NodeMap() {
             </div>
           </div>
 
-          {/* Top-right live indicator */}
-          <div className="absolute top-4 right-4 flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Live Network</span>
+          {/* Top-right live indicator — real I2P status */}
+          <div
+            className={`absolute top-4 right-4 flex items-center gap-2 px-2.5 py-1 rounded-full backdrop-blur-sm ${
+              isDark ? "bg-gray-900/60 border border-gray-800" : "bg-white/80 border border-gray-200"
+            }`}
+            title={
+              !i2p
+                ? "Checking I2P status…"
+                : !i2p.reachable
+                  ? "Seed unreachable — cannot read I2P status"
+                  : i2p.routing_ok
+                    ? `I2P routing healthy · ${i2p.netdb_routers} routers in netDb`
+                    : !i2p.sam_handshake_ok
+                      ? "SAM bridge not responding on seed"
+                      : `SAM up but netDb only has ${i2p.netdb_routers} routers (need 50+)`
+            }
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                !i2p
+                  ? "bg-gray-400"
+                  : i2p.routing_ok
+                    ? "bg-emerald-400 animate-pulse"
+                    : !i2p.reachable
+                      ? "bg-rose-500"
+                      : "bg-amber-400 animate-pulse"
+              }`}
+            />
+            <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              I2P {!i2p ? "…" : i2p.routing_ok ? "routing" : !i2p.reachable ? "offline" : "degraded"}
+            </span>
           </div>
         </div>
       </div>

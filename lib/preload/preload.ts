@@ -220,10 +220,43 @@ export interface ShareToNetworkResult {
   error?: string
 }
 
+export interface NetworkFeedChunk {
+  id: string
+  title: string
+  category: string
+  preview: string
+  hotkey: string
+  timestamp: number
+  source: string
+  node: string
+}
+
+export interface NetworkFeedResult {
+  chunks: NetworkFeedChunk[]
+  total: number
+  chunks_today: number
+  last_updated: number | null
+  error?: string
+}
+
+export interface I2PStatus {
+  installed: boolean
+  sam_listening: boolean
+  sam_handshake_ok: boolean
+  http_proxy_listening: boolean
+  netdb_routers: number
+  sam_clients_connected: number
+  routing_ok: boolean
+  reachable: boolean
+  error?: string
+}
+
 export interface NetworkRAGApiInterface {
   query: (query: string, options?: NetworkQueryOptions) => Promise<NetworkQueryResult>
   search: (query: string, options?: NetworkQueryOptions) => Promise<NetworkSearchResult>
   stats: (options?: { dbPath?: string }) => Promise<NetworkPoolStats>
+  feed: (options?: { limit?: number; category?: string; hours?: number }) => Promise<NetworkFeedResult>
+  i2pStatus: () => Promise<I2PStatus>
   shareText: (content: string, title?: string) => Promise<ShareToNetworkResult>
   shareFile: (filePath: string, title?: string) => Promise<ShareToNetworkResult>
 }
@@ -236,6 +269,10 @@ const NetworkRAGApi: NetworkRAGApiInterface = {
     ipcRenderer.invoke('superbrain:network:query', query, { ...options, searchOnly: true }),
 
   stats: (options = {}) => ipcRenderer.invoke('superbrain:network:stats', options),
+
+  feed: (options = {}) => ipcRenderer.invoke('superbrain:network:feed', options),
+
+  i2pStatus: () => ipcRenderer.invoke('superbrain:network:i2p-status'),
 
   shareText: (content, title) =>
     ipcRenderer.invoke('rag:share-to-network', { mode: 'text', content, title }),
