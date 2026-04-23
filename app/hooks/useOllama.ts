@@ -681,23 +681,41 @@ When you use information from the context above, cite the source using [1], [2],
           const answer = netData?.text || netData?.answer || ''
 
           if (answer && answer !== 'Network unreachable') {
-            const networkSource: RAGSource = {
-              content: answer.substring(0, 300),
-              source: 'SN442 Network | Bittensor Validated',
-              score: 1.0,
-              metadata: { provider: 'sn442', type: 'network' },
-            }
+            // Map REAL sources from /query (title, hotkey, category, node_id, content_hash)
+            // instead of stuffing one synthetic "SN442 Network" card — this is what the
+            // Bittensor reward attribution UI needs.
+            const realSources: RAGSource[] = Array.isArray(netData?.sources) && netData.sources.length > 0
+              ? netData.sources.map((s: any) => ({
+                  content: s.content || s.preview || '',
+                  source: s.source || s.title || 'SN442',
+                  score: typeof s.score === 'number' ? s.score : 1.0,
+                  metadata: {
+                    provider: 'sn442',
+                    type: 'network',
+                    hotkey: s.hotkey || '',
+                    category: s.category || 'general',
+                    node_id: s.node_id || 'frankfurt',
+                    content_hash: s.content_hash || '',
+                    timestamp: s.timestamp || 0,
+                  },
+                }))
+              : [{
+                  content: answer.substring(0, 300),
+                  source: 'SN442 Network | Bittensor Validated',
+                  score: 1.0,
+                  metadata: { provider: 'sn442', type: 'network' },
+                }]
 
             const assistantMessage: ChatMessage = {
               id: `${Date.now()}-assistant`,
               role: 'assistant',
               content: answer,
               timestamp: new Date(),
-              sources: [networkSource],
+              sources: realSources,
             }
 
             setChatMessages((prev) => [...prev, assistantMessage])
-            setRagSources([networkSource])
+            setRagSources(realSources)
 
             // Save to backend
             try {

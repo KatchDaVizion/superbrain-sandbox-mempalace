@@ -181,6 +181,8 @@ export interface NetworkSource {
   source: string
   timestamp: number
   node_id: string
+  hotkey?: string
+  category?: string
 }
 
 export interface NetworkQueryResult {

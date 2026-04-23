@@ -566,6 +566,8 @@ export interface NetworkSource {
   source: string
   timestamp: number
   node_id: string
+  hotkey?: string
+  category?: string
 }
 
 export interface NetworkSearchResult {
@@ -612,9 +614,13 @@ ipcMain.handle(
         const results = sources.map((s: any) => ({
           content: s.preview || '',
           content_hash: s.content_hash || '',
+          score: 1.0,
+          relevance: 1.0,
+          freshness: 1.0,
           source: s.title || s.source || 'Untitled',
           timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
           node_id: s.node_id || 'frankfurt',
+          hotkey: s.hotkey || '',
           category: s.category || 'general',
         }))
         return { results }
@@ -633,9 +639,13 @@ ipcMain.handle(
         ? data.sources.map((s: any) => ({
             content: s.preview || '',
             content_hash: s.content_hash || '',
+            score: 1.0,
+            relevance: 1.0,
+            freshness: 1.0,
             source: s.title || s.source || 'Untitled',
             timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
             node_id: s.node_id || 'frankfurt',
+            hotkey: s.hotkey || '',
             category: s.category || 'general',
           }))
         : (data.citations || []).map((c: any) => ({
