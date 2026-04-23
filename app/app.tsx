@@ -8,7 +8,6 @@ import Ollama from './pages/ollama'
 import Models from './pages/models'
 import Rag from './pages/Rag'
 import NetworkKnowledge from './pages/NetworkKnowledge'
-import Feed from './pages/Feed'
 import NodeMap from './pages/NodeMap'
 import Settings from './pages/Settings'
 import History from './pages/History'
@@ -34,7 +33,6 @@ const App = () => {
                 <Route path="/models" element={<Models />} />
                 <Route path="/rag" element={<Rag />} />
                 <Route path="/network" element={<NetworkKnowledge />} />
-                <Route path="/feed" element={<Feed />} />
                 <Route path="/nodemap" element={<NodeMap />} />
                 <Route path="/earnings" element={<Earnings />} />
                 <Route path="/benchmark" element={<Benchmark />} />
