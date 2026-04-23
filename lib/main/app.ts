@@ -10,6 +10,7 @@ import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
 import { mesh } from '../p2p/meshNetwork'
 import { mempalace } from '../mempalace'
+import { signShare, getIdentityPublicKeyHex } from './signing'
 import { downloadZim, cancelDownload, getInstalledPacks, KNOWLEDGE_PACKS } from '../zim/zimDownloader'
 import { runBenchmark, getCachedBenchmark, getTierInfo } from '../benchmark/benchmarkService'
 import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/leaderboardService'
@@ -825,15 +826,25 @@ ipcMain.handle(
       const timeout = setTimeout(() => ctrl.abort(), 10_000)
       let resp: Response
       try {
+        const shareBody = {
+          content: content.slice(0, 5_000),
+          title: payload.title || 'Untitled',
+          source: 'superbrain-desktop',
+          contributor_hotkey: '',
+        }
+        // Attribution-proof: sign the canonical subset the server verifies.
+        // On failure we fall back to unsigned (server accepts as legacy-unsigned).
+        let envelope: Record<string, unknown> = shareBody
+        try {
+          const sig = signShare(shareBody)
+          envelope = { ...shareBody, public_key: sig.public_key, signature: sig.signature }
+        } catch (sigErr) {
+          console.warn('[ShareToNetwork] signing failed, sending unsigned:', sigErr)
+        }
         resp = await fetch(dbPath, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            content: content.slice(0, 5_000),
-            title: payload.title || 'Untitled',
-            source: 'superbrain-desktop',
-            contributor_hotkey: '',
-          }),
+          body: JSON.stringify(envelope),
           signal: ctrl.signal,
         })
       } finally {
