@@ -417,21 +417,33 @@ export default function NodeMap() {
   const isDark = resolvedTheme === "dark"
 
   useEffect(() => {
-    loadNetwork().then(({ nodes: n, connections: c, totalChunks }) => {
-      setNodes(n)
-      setConnections(c)
-      // Prefer the authoritative /feed/stats total; fall back to sum of per-peer chunkCount
-      // only if feed/stats is unreachable (peer counters are stale, so this is a degraded mode).
-      const sumFromPeers = n.reduce((a, b) => a + b.chunkCount, 0)
-      setStats({
-        nodes: n.length,
-        chunks: totalChunks ?? sumFromPeers,
-        connections: c.filter(x => x.active).length,
-      })
-    })
+    let cancelled = false
+    const load = () => {
+      loadNetwork().then(({ nodes: n, connections: c, totalChunks }) => {
+        if (cancelled) return
+        setNodes(n)
+        setConnections(c)
+        // Prefer the authoritative /feed/stats total; fall back to sum of per-peer chunkCount
+        // only if feed/stats is unreachable (peer counters are stale, so this is a degraded mode).
+        const sumFromPeers = n.reduce((a, b) => a + b.chunkCount, 0)
+        setStats({
+          nodes: n.length,
+          chunks: totalChunks ?? sumFromPeers,
+          connections: c.filter(x => x.active).length,
+        })
+      }).catch(() => {})
+    }
+    load()
+    // Poll every 30s so the chunk counter tracks the live feed as agents ship new content.
+    // Pauses when the tab is backgrounded to avoid burning quota on an idle window.
+    const iv = setInterval(() => {
+      if (typeof document !== "undefined" && document.hidden) return
+      load()
+    }, 30_000)
     ;(window as any).electron?.invoke?.("p2p:public-url")
       .then((url: string | null) => setPublicUrl(url))
       .catch(() => {})
+    return () => { cancelled = true; clearInterval(iv) }
   }, [])
 
   // Real I2P status — polled every 30 s. Green dot requires SAM handshake + >=50 netDb routers.
@@ -649,7 +661,7 @@ export default function NodeMap() {
             <div key={label} className="flex items-center gap-2">
               <Icon className={`w-4 h-4 ${color}`} />
               <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>{label}:</span>
-              <span className="text-sm font-mono font-bold">{value}</span>
+              <span className="text-sm font-mono font-bold">{typeof value === "number" ? value.toLocaleString() : value}</span>
             </div>
           ))}
           <div className="ml-auto flex items-center gap-5 text-xs">
