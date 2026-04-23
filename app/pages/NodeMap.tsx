@@ -411,6 +411,8 @@ export default function NodeMap() {
     sam_handshake_ok: boolean
     netdb_routers: number
     reachable: boolean
+    dest_b32: string | null
+    inbound_reachable: boolean
   } | null>(null)
   const isDark = resolvedTheme === "dark"
 
@@ -444,9 +446,11 @@ export default function NodeMap() {
           sam_handshake_ok: !!s.sam_handshake_ok,
           netdb_routers: typeof s.netdb_routers === "number" ? s.netdb_routers : 0,
           reachable: !!s.reachable,
+          dest_b32: typeof s.dest_b32 === "string" ? s.dest_b32 : null,
+          inbound_reachable: !!s.inbound_reachable,
         })
       } catch {
-        if (!cancelled) setI2p({ routing_ok: false, sam_handshake_ok: false, netdb_routers: 0, reachable: false })
+        if (!cancelled) setI2p({ routing_ok: false, sam_handshake_ok: false, netdb_routers: 0, reachable: false, dest_b32: null, inbound_reachable: false })
       }
     }
     load()
@@ -729,26 +733,28 @@ export default function NodeMap() {
                 ? "Checking I2P status…"
                 : !i2p.reachable
                   ? "Seed unreachable — cannot read I2P status"
-                  : i2p.routing_ok
-                    ? `I2P routing healthy · ${i2p.netdb_routers} routers in netDb`
-                    : !i2p.sam_handshake_ok
-                      ? "SAM bridge not responding on seed"
-                      : `SAM up but netDb only has ${i2p.netdb_routers} routers (need 50+)`
+                  : i2p.routing_ok && i2p.dest_b32
+                    ? `I2P bidirectional · ${i2p.netdb_routers} routers · ${i2p.dest_b32.slice(0, 16)}…`
+                    : i2p.routing_ok
+                      ? `I2P outbound only — no inbound address (netDb ${i2p.netdb_routers})`
+                      : !i2p.sam_handshake_ok
+                        ? "SAM bridge not responding on seed"
+                        : `SAM up but netDb only has ${i2p.netdb_routers} routers (need 50+)`
             }
           >
             <span
               className={`w-2 h-2 rounded-full ${
                 !i2p
                   ? "bg-gray-400"
-                  : i2p.routing_ok
-                    ? "bg-emerald-400 animate-pulse"
-                    : !i2p.reachable
-                      ? "bg-rose-500"
+                  : !i2p.reachable
+                    ? "bg-rose-500"
+                    : i2p.routing_ok && i2p.dest_b32
+                      ? "bg-emerald-400 animate-pulse"
                       : "bg-amber-400 animate-pulse"
               }`}
             />
             <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              I2P {!i2p ? "…" : i2p.routing_ok ? "routing" : !i2p.reachable ? "offline" : "degraded"}
+              I2P {!i2p ? "…" : !i2p.reachable ? "offline" : i2p.routing_ok && i2p.dest_b32 ? "bidirectional" : i2p.routing_ok ? "outbound" : "degraded"}
             </span>
           </div>
         </div>
