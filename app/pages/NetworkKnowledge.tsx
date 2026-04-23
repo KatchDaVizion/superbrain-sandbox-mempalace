@@ -133,7 +133,7 @@ const NetworkKnowledge: React.FC = () => {
               <Database className="w-4 h-4 text-blue-500" />
               <span className="text-xs text-muted-foreground">Knowledge Chunks</span>
             </div>
-            <div className="text-2xl font-bold">{stats.total_chunks}</div>
+            <div className="text-2xl font-bold">{stats.total_chunks.toLocaleString()}</div>
           </div>
           <div
             className={`p-4 rounded-xl border ${
@@ -144,7 +144,7 @@ const NetworkKnowledge: React.FC = () => {
               <Users className="w-4 h-4 text-green-500" />
               <span className="text-xs text-muted-foreground">Contributing Nodes</span>
             </div>
-            <div className="text-2xl font-bold">{stats.unique_nodes}</div>
+            <div className="text-2xl font-bold">{stats.unique_nodes.toLocaleString()}</div>
           </div>
           <div
             className={`p-4 rounded-xl border ${
@@ -421,7 +421,7 @@ const NetworkKnowledge: React.FC = () => {
           <p className="text-sm text-muted-foreground max-w-md mx-auto">
             Query knowledge shared by nodes across the SuperBrain network on Bittensor Subnet 442.
             {stats && stats.total_chunks > 0
-              ? ` Currently ${stats.total_chunks} knowledge chunks from ${stats.unique_nodes} node(s).`
+              ? ` Currently ${stats.total_chunks.toLocaleString()} knowledge chunks from ${stats.unique_nodes.toLocaleString()} node(s).`
               : ' No knowledge available yet.'}
           </p>
         </div>

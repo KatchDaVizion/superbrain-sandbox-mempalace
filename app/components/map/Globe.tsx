@@ -379,7 +379,7 @@ export default function Globe({ nodes, connections, isDark, privacyMode }: Props
           </div>
           <div style={{ opacity: 0.7 }}>{hovered.role}</div>
           {hovered.city && <div style={{ opacity: 0.7 }}>{hovered.city}</div>}
-          {hovered.chunkCount > 0 && <div style={{ opacity: 0.7 }}>{hovered.chunkCount} chunks</div>}
+          {hovered.chunkCount > 0 && <div style={{ opacity: 0.7 }}>{hovered.chunkCount.toLocaleString()} chunks</div>}
           {!privacyMode && hovered.hotkey && (
             <div style={{ opacity: 0.55, marginTop: 2 }}>{hovered.hotkey.slice(0, 16)}…</div>
           )}

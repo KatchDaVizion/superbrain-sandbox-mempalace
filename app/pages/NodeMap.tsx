@@ -375,7 +375,7 @@ function renderTooltip(m: MapMarker, privacy: boolean, publicUrl: string | null)
     const stakeLine = typeof n.stake === "number" && n.stake > 0
       ? ` · τ${n.stake.toFixed(2)}`
       : ""
-    const chunkLine = n.chunkCount > 0 ? ` · ${n.chunkCount} chunks` : ""
+    const chunkLine = n.chunkCount > 0 ? ` · ${n.chunkCount.toLocaleString()} chunks` : ""
     return `<div style="font-size:11px;color:#94a3b8;">${roleLabel[n.role]} · ${idDisplay}${chunkLine}${stakeLine}</div>`
   }).join("")
 
@@ -385,7 +385,7 @@ function renderTooltip(m: MapMarker, privacy: boolean, publicUrl: string | null)
 
   const totals = count > 1
     ? `<div style="font-size:11px;color:#94a3b8;margin-top:4px;border-top:1px solid #2d3748;padding-top:4px;">
-         Total: ${m.totalChunks} chunks${m.totalStake > 0 ? ` · τ${m.totalStake.toFixed(2)}` : ""}
+         Total: ${m.totalChunks.toLocaleString()} chunks${m.totalStake > 0 ? ` · τ${m.totalStake.toFixed(2)}` : ""}
        </div>`
     : ""
 
