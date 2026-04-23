@@ -6,14 +6,27 @@ SuperBrain AI is a **desktop AI chat application** built with **ElectronJS** and
 
 ## Features
 
+### Local AI
 - **Offline AI Models:** Download and manage Ollama models locally.
 - **Multiple Models:** Easily switch between installed models.
 - **Chat History:** View, delete, or clear all chat history.
 - **Creativity Control:** Adjust AI responses from logical to creative.
 - **Performance Monitoring:** Response time, tokens/sec, memory usage.
-- **Bittensor Mining:** Built-in TAO mining and pool earnings dashboard.
-- **RAG System:** Ingest documents and query them with local LLMs.
 - **Privacy First:** You control which data leaves your machine — nothing is sent to OpenAI, Anthropic, or any cloud AI provider.
+
+### SN442 Knowledge Network (Bittensor Subnet 442)
+- **Bittensor Mining:** Register a hotkey and earn TAO by contributing validated knowledge chunks to SN442.
+- **RAG over the network:** Ask questions via the `/query` endpoint and get answers backed by peer-contributed, on-chain validated knowledge.
+- **Live Feed:** Real-time stream of knowledge being validated across SN442 agents (arXiv, YouTube, Reddit, HackerNews, Wikipedia, and more).
+- **Earnings Dashboard:** See your hotkey's chunk count, retrievals, and estimated TAO earnings, read directly from the subnet metagraph.
+
+### Offline & Privacy
+- **ZIM Wikipedia:** Full offline Wikipedia integration via ZIM files — query offline, ingest to local Qdrant.
+- **MemPalace Layer:** Spatial knowledge organization with a 3D knowledge-graph view.
+- **P2P Knowledge Share:** Hyperswarm-based peer-to-peer sync — share knowledge directly with nearby peers, not just the seed node.
+- **I2P Privacy Layer:** Optional anonymous P2P routing via I2P.
+
+### UI
 - **Dark & Light Mode:** Theme-aware UI for comfortable usage.
 - **Responsive UI:** Optimized for desktop screens.
 
