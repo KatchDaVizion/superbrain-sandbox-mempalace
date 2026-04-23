@@ -158,11 +158,28 @@ function parseCityFromPeer(peer: PeerInfo): { city: string; country: string } {
 }
 
 async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Connection[]; totalChunks: number | null }> {
-  const [metagraph, peersResp, feedStats] = await Promise.all([
+  // Route /feed/stats through the main-process IPC (Node fetch, no renderer restrictions).
+  // The direct renderer fetch was returning null silently on some machines — the IPC handler
+  // at superbrain:network:stats is the same one NetworkKnowledge uses, known to work.
+  const ipcStatsPromise = (async (): Promise<FeedStatsResponse | null> => {
+    try {
+      const api = (window as any).NetworkRAGApi
+      if (!api?.stats) return null
+      const s = await api.stats()
+      return typeof s?.total_chunks === "number" ? { total_chunks: s.total_chunks, chunks_today: s.chunks_today } : null
+    } catch {
+      return null
+    }
+  })()
+
+  const [metagraph, peersResp, feedStatsIpc, feedStatsDirect] = await Promise.all([
     fetchWithTimeout<MetagraphResponse>(`${FRANKFURT_API}/metagraph`, 20000),
     fetchWithTimeout<PeersResponse>(`${FRANKFURT_API}/peers`, 8000),
+    ipcStatsPromise,
+    // Keep the direct-fetch path as a fallback for browser-only contexts (storybook, tests).
     fetchWithTimeout<FeedStatsResponse>(`${FRANKFURT_API}/feed/stats`, 6000),
   ])
+  const feedStats = feedStatsIpc ?? feedStatsDirect
 
   const peers = peersResp?.peers ?? []
   const peerByHotkey = new Map<string, PeerInfo>()
