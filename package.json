@@ -22,11 +22,39 @@
     "build:unpack": "run-s vite:build:app electron:build:dir",
     "build:win": "run-s vite:build:app electron:build:win",
     "build:mac": "run-s vite:build:app electron:build:mac",
-    "build:linux": "run-s vite:build:app electron:build:linux"
+    "build:linux": "run-s vite:build:app electron:build:linux",
+    "dist:linux": "run-s vite:build:app && npx electron-builder --linux deb AppImage"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/KatchDaVizion/superbrain-sandbox-mempalace"
+  },
+  "build": {
+    "appId": "ai.superbrain.desktop",
+    "productName": "SuperBrain",
+    "directories": {
+      "output": "dist-installer",
+      "buildResources": "build-resources"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*",
+      "package.json",
+      "!**/node_modules/*/{CHANGELOG.md,README.md,test,__tests__,*.d.ts}"
+    ],
+    "linux": {
+      "target": [
+        { "target": "deb", "arch": ["x64"] },
+        { "target": "AppImage", "arch": ["x64"] }
+      ],
+      "category": "Network",
+      "maintainer": "KatchDaVizion <david.louischarles@gmail.com>",
+      "icon": "build-resources/icon.png"
+    },
+    "deb": {
+      "priority": "optional",
+      "compression": "xz"
+    }
   },
   "pnpm": {
     "onlyBuiltDependencies": [
