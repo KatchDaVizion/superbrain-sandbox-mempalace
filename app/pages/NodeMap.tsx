@@ -174,8 +174,16 @@ async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Conne
   const seenKeys = new Set<string>()
 
   // --- Frankfurt bootstrap seed (always shown) ---
+  // The seed node physically holds every chunk in the network. /peers returns a
+  // stale 'chunks' field (hardcoded in peers.json), so prefer /feed/stats.total_chunks
+  // which is computed from the live DB. Falls back to peers-list values only if the
+  // authoritative count is unavailable.
   const seedPeer = peers.find(p => p.is_seed) || peers.find(p => p.url?.includes("46.225.114.202"))
-  const seedChunks = seedPeer?.chunks ?? peersResp?.total_chunks ?? 0
+  const seedChunks =
+    (typeof feedStats?.total_chunks === "number" ? feedStats.total_chunks : null) ??
+    seedPeer?.chunks ??
+    peersResp?.total_chunks ??
+    0
   nodes.push({
     id: "seed-frankfurt",
     label: "Frankfurt Seed",
