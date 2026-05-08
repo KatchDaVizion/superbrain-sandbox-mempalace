@@ -990,6 +990,17 @@ ipcMain.handle('node:mode:stop', () => {
   stopNodeMode(svc)
 })
 
+ipcMain.handle('node:run-setup-command', (_event, cmd: string) => {
+  return new Promise<{ success: boolean; output: string }>((resolve) => {
+    exec(cmd, { timeout: 180_000 }, (err, stdout, stderr) => {
+      resolve({
+        success: !err,
+        output: (err ? (stderr || err.message) : stdout).trim().slice(0, 500),
+      })
+    })
+  })
+})
+
 // -----------------------
 // Create Main Window
 // -----------------------

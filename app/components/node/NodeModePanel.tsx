@@ -1,6 +1,7 @@
 // app/components/node/NodeModePanel.tsx
+import { useState, useCallback } from 'react'
 import { useTheme } from 'next-themes'
-import { Network, Wifi, Globe, HardDrive, Users, RefreshCw } from 'lucide-react'
+import { Network, Wifi, Globe, HardDrive, Users, RefreshCw, Terminal } from 'lucide-react'
 import { useNodeMode } from '../../hooks/useNodeMode'
 import type { NetworkMode } from '../../../lib/preload/preload'
 
@@ -26,7 +27,23 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 export function NodeModePanel() {
   const { resolvedTheme } = useTheme()
   const dark = resolvedTheme === 'dark'
-  const { config, status, loading, toggle, setConfig, startError } = useNodeMode()
+  const { config, status, loading, toggle, setConfig, startError, refresh } = useNodeMode()
+  const [fixing, setFixing] = useState(false)
+  const [fixResult, setFixResult] = useState<string | null>(null)
+
+  const runSetup = useCallback(async (cmd: string) => {
+    setFixing(true)
+    setFixResult(null)
+    try {
+      const result = await window.NodeModeApi.runSetupCommand(cmd)
+      setFixResult(result.success ? 'Done' : result.output || 'Failed')
+    } catch {
+      setFixResult('Error running command')
+    } finally {
+      setFixing(false)
+      await refresh()
+    }
+  }, [refresh])
 
   const textPrimary = dark ? 'text-white' : 'text-gray-900'
   const textSub = dark ? 'text-gray-400' : 'text-gray-500'
@@ -68,11 +85,48 @@ export function NodeModePanel() {
         <Toggle on={config.enabled} onClick={toggle} />
       </div>
 
-      {/* Preflight error */}
+      {/* Preflight error + action buttons */}
       {startError && (
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-xs">
-          <span className="text-red-400 font-medium shrink-0">Fix this:</span>
-          <span className="text-red-300">{startError}</span>
+        <div className="flex flex-col gap-2 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/30 text-xs">
+          <div className="flex items-start gap-2">
+            <span className="text-red-400 font-medium shrink-0">Fix this:</span>
+            <span className="text-red-300">{startError}</span>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {startError.includes('Ollama is not running') && (
+              <button
+                disabled={fixing}
+                onClick={() => runSetup('curl -fsSL https://ollama.com/install.sh | sh && ollama pull nomic-embed-text')}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-orange-600 hover:bg-orange-500 text-white disabled:opacity-50 transition-colors"
+              >
+                {fixing ? <RefreshCw size={11} className="animate-spin" /> : <Terminal size={11} />}
+                Install Ollama
+              </button>
+            )}
+            {startError.includes('nomic-embed-text') && (
+              <button
+                disabled={fixing}
+                onClick={() => runSetup('ollama pull nomic-embed-text')}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-orange-600 hover:bg-orange-500 text-white disabled:opacity-50 transition-colors"
+              >
+                {fixing ? <RefreshCw size={11} className="animate-spin" /> : <Terminal size={11} />}
+                Pull Model
+              </button>
+            )}
+            {startError.includes('Qdrant') && (
+              <button
+                disabled={fixing}
+                onClick={() => runSetup('docker run -d -p 6333:6333 --name qdrant --restart unless-stopped qdrant/qdrant 2>/dev/null || docker start qdrant')}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors"
+              >
+                {fixing ? <RefreshCw size={11} className="animate-spin" /> : <Terminal size={11} />}
+                Start Qdrant
+              </button>
+            )}
+            {fixResult && (
+              <span className={fixResult === 'Done' ? 'text-green-400' : 'text-red-400'}>{fixResult}</span>
+            )}
+          </div>
         </div>
       )}
 

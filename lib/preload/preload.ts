@@ -329,12 +329,18 @@ export interface NodeModeStartResult {
   error?: string
 }
 
+export interface NodeModeSetupResult {
+  success: boolean
+  output: string
+}
+
 export interface NodeModeApiInterface {
   getConfig: () => Promise<NodeModeConfig>
   setConfig: (config: Partial<NodeModeConfig>) => Promise<NodeModeStartResult | undefined>
   status: () => Promise<NodeModeStatus>
   start: () => Promise<NodeModeStartResult>
   stop: () => Promise<void>
+  runSetupCommand: (cmd: string) => Promise<NodeModeSetupResult>
 }
 
 const NodeModeApi: NodeModeApiInterface = {
@@ -343,6 +349,7 @@ const NodeModeApi: NodeModeApiInterface = {
   status: () => ipcRenderer.invoke('node:mode:status'),
   start: () => ipcRenderer.invoke('node:mode:start'),
   stop: () => ipcRenderer.invoke('node:mode:stop'),
+  runSetupCommand: (cmd) => ipcRenderer.invoke('node:run-setup-command', cmd),
 }
 
 contextBridge.exposeInMainWorld('NodeModeApi', NodeModeApi)
