@@ -341,6 +341,8 @@ export interface NodeModeApiInterface {
   start: () => Promise<NodeModeStartResult>
   stop: () => Promise<void>
   runSetupCommand: (cmd: string) => Promise<NodeModeSetupResult>
+  getHotkey: () => Promise<string>
+  setHotkey: (hotkey: string) => Promise<{ success: boolean; error?: string }>
 }
 
 const NodeModeApi: NodeModeApiInterface = {
@@ -350,6 +352,8 @@ const NodeModeApi: NodeModeApiInterface = {
   start: () => ipcRenderer.invoke('node:mode:start'),
   stop: () => ipcRenderer.invoke('node:mode:stop'),
   runSetupCommand: (cmd) => ipcRenderer.invoke('node:run-setup-command', cmd),
+  getHotkey: () => ipcRenderer.invoke('node:get-hotkey'),
+  setHotkey: (hotkey) => ipcRenderer.invoke('node:set-hotkey', hotkey),
 }
 
 contextBridge.exposeInMainWorld('NodeModeApi', NodeModeApi)

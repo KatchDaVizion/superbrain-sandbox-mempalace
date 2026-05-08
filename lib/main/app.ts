@@ -16,7 +16,7 @@ import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/l
 import { getNodeModeService } from '@/lib/node/nodeModeService'
 import { getNetworkChunkStore } from '@/lib/node/networkChunkStore'
 import { getLocalApiServer } from '@/lib/node/localApiServer'
-import { signShare, getIdentityPublicKeyHex } from './signing'
+import { signShare, getIdentityPublicKeyHex, getContributorHotkey, setContributorHotkey } from './signing'
 
 import {
   createThread,
@@ -864,7 +864,7 @@ ipcMain.handle(
         title: payload.title || 'Untitled',
         source: 'superbrain-desktop',
         category: 'general',
-        contributor_hotkey: getIdentityPublicKeyHex(),
+        contributor_hotkey: getContributorHotkey(),
       }
       const { signature, public_key } = signShare(shareBody)
       let resp: Response
@@ -999,6 +999,19 @@ ipcMain.handle('node:run-setup-command', (_event, cmd: string) => {
       })
     })
   })
+})
+
+ipcMain.handle('node:get-hotkey', () => {
+  return getContributorHotkey()
+})
+
+ipcMain.handle('node:set-hotkey', (_event, hotkey: string) => {
+  const trimmed = (hotkey || '').trim()
+  if (trimmed && (!trimmed.startsWith('5') || trimmed.length !== 48)) {
+    return { success: false, error: 'Invalid hotkey — must start with "5" and be 48 characters' }
+  }
+  setContributorHotkey(trimmed)
+  return { success: true }
 })
 
 // -----------------------
@@ -1495,7 +1508,7 @@ ipcMain.handle(
             content: text.substring(0, 5000),
             title: typeof title === 'string' ? title : 'Shared Document',
             source: 'superbrain-desktop-rag',
-            contributor_hotkey: getIdentityPublicKeyHex(),
+            contributor_hotkey: getContributorHotkey(),
           }
           const { signature: chunkSig, public_key: chunkPk } = signShare(chunkBody)
           await fetch(`${SN442_SEED}/knowledge/share`, {

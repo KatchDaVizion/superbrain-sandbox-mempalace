@@ -19,6 +19,7 @@ interface KeypairRecord {
 const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
 
 const KEY_FILE = path.join(app.getPath('userData'), 'superbrain-identity.json')
+const CONFIG_FILE = path.join(app.getPath('userData'), 'superbrain-config.json')
 
 function seedHexToPrivateKey(seedHex: string): KeyObject {
   const seed = Buffer.from(seedHex, 'hex')
@@ -114,4 +115,26 @@ export function signShare(body: {
 /** For UI display / future on-chain registration — return our Ed25519 identity pubkey hex. */
 export function getIdentityPublicKeyHex(): string {
   return getOrCreateKeypair().publicKeyHex
+}
+
+/** Read the user's Bittensor ss58 contributor hotkey from config. Returns '' if not set. */
+export function getContributorHotkey(): string {
+  try {
+    const raw = fs.readFileSync(CONFIG_FILE, 'utf8')
+    const cfg = JSON.parse(raw)
+    return typeof cfg.contributor_hotkey === 'string' ? cfg.contributor_hotkey : ''
+  } catch {
+    return ''
+  }
+}
+
+/** Persist the user's Bittensor ss58 contributor hotkey to config. */
+export function setContributorHotkey(hotkey: string): void {
+  let cfg: Record<string, unknown> = {}
+  try {
+    cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'))
+  } catch { /* file missing or corrupt — start fresh */ }
+  cfg.contributor_hotkey = hotkey
+  fs.mkdirSync(path.dirname(CONFIG_FILE), { recursive: true })
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2))
 }

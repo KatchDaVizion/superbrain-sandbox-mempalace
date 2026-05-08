@@ -1,7 +1,7 @@
 // app/components/node/NodeModePanel.tsx
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Network, Wifi, Globe, HardDrive, Users, RefreshCw, Terminal } from 'lucide-react'
+import { Network, Wifi, Globe, HardDrive, Users, RefreshCw, Terminal, Check } from 'lucide-react'
 import { useNodeMode } from '../../hooks/useNodeMode'
 import type { NetworkMode } from '../../../lib/preload/preload'
 
@@ -30,6 +30,35 @@ export function NodeModePanel() {
   const { config, status, loading, toggle, setConfig, startError, refresh } = useNodeMode()
   const [fixing, setFixing] = useState(false)
   const [fixResult, setFixResult] = useState<string | null>(null)
+  const [hotkey, setHotkey] = useState('')
+  const [hotkeyInput, setHotkeyInput] = useState('')
+  const [hotkeySaving, setHotkeySaving] = useState(false)
+  const [hotkeyError, setHotkeyError] = useState<string | null>(null)
+  const [hotkeySaved, setHotkeySaved] = useState(false)
+
+  useEffect(() => {
+    window.NodeModeApi.getHotkey().then((h) => {
+      setHotkey(h)
+      setHotkeyInput(h)
+    }).catch(() => {})
+  }, [])
+
+  const saveHotkey = useCallback(async () => {
+    const trimmed = hotkeyInput.trim()
+    if (trimmed === hotkey) return
+    setHotkeySaving(true)
+    setHotkeyError(null)
+    setHotkeySaved(false)
+    const result = await window.NodeModeApi.setHotkey(trimmed)
+    setHotkeySaving(false)
+    if (result.success) {
+      setHotkey(trimmed)
+      setHotkeySaved(true)
+      setTimeout(() => setHotkeySaved(false), 2000)
+    } else {
+      setHotkeyError(result.error || 'Invalid hotkey')
+    }
+  }, [hotkey, hotkeyInput])
 
   const runSetup = useCallback(async (cmd: string) => {
     setFixing(true)
@@ -200,6 +229,33 @@ export function NodeModePanel() {
           <span>64 MB</span>
           <span>4 GB</span>
         </div>
+      </div>
+
+      {/* Bittensor hotkey */}
+      <div>
+        <p className={`text-sm font-medium mb-1 ${textMed}`}>Bittensor Hotkey (ss58)</p>
+        <p className={`text-xs mb-2 ${textSub}`}>Required to earn TAO when your shared knowledge is retrieved</p>
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            placeholder="5..."
+            value={hotkeyInput}
+            onChange={(e) => { setHotkeyInput(e.target.value); setHotkeyError(null); setHotkeySaved(false) }}
+            onBlur={saveHotkey}
+            onKeyDown={(e) => e.key === 'Enter' && saveHotkey()}
+            className={`flex-1 px-2.5 py-1.5 rounded text-xs bg-transparent border outline-none ${
+              hotkeyError ? 'border-red-500' : dark ? 'border-gray-600 text-gray-200' : 'border-gray-300 text-gray-800'
+            } focus:border-blue-500 transition-colors`}
+          />
+          {hotkeySaving && <RefreshCw size={13} className={`animate-spin ${textSub} shrink-0`} />}
+          {hotkeySaved && <Check size={13} className="text-green-400 shrink-0" />}
+        </div>
+        {hotkeyError && <p className="text-xs text-red-400 mt-1">{hotkeyError}</p>}
+        {!hotkey && (
+          <p className={`text-xs mt-1 ${textSub}`}>
+            No hotkey set — contributions are anonymous
+          </p>
+        )}
       </div>
 
       <p className={`text-xs ${textSub}`}>
