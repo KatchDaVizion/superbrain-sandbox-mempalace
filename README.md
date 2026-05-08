@@ -34,19 +34,84 @@ SuperBrain AI is a **desktop AI chat application** built with **ElectronJS** and
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) v18 or higher
-- [Ollama](https://ollama.com/) installed and running locally
-- npm (comes with Node.js)
+| Dependency | Version | Purpose |
+|---|---|---|
+| [Node.js](https://nodejs.org/) | 18+ | App runtime |
+| [Ollama](https://ollama.com/) | latest | Local LLM + embeddings |
+| [Docker](https://docs.docker.com/get-docker/) | latest | Runs Qdrant vector store (Node Mode) |
 
 ---
 
-## Installation
+## Setup
+
+### 1. Start Qdrant (required for Node Mode)
+
+```bash
+docker run -d -p 6333:6333 --name qdrant qdrant/qdrant
+```
+
+### 2. Install Ollama and pull the embedding model
+
+```bash
+# Install: https://ollama.com/download
+ollama pull nomic-embed-text
+```
+
+### 3. Install and run
 
 ```bash
 git clone https://github.com/KatchDaVizion/superbrain-sandbox-mempalace.git
 cd superbrain-sandbox-mempalace/desktop
 npm install
+npm run dev
 ```
+
+### 4. Enable Node Mode
+
+Open the app → Settings → Node Mode → toggle ON.
+
+The app runs a preflight check before starting: Ollama running ✓ · nomic-embed-text present ✓ · Qdrant healthy ✓. If anything is missing it tells you exactly what to fix.
+
+---
+
+## Local API — OpenAI-compatible endpoint (port 11435)
+
+When Node Mode is running, SuperBrain exposes a local HTTP server. Any app that supports an OpenAI-compatible endpoint can use it — no API key, fully private, instant.
+
+```
+POST http://localhost:11435/v1/chat/completions
+GET  http://localhost:11435/v1/models
+```
+
+Works with any OpenAI SDK:
+
+```js
+import OpenAI from 'openai'
+
+const client = new OpenAI({
+  baseURL: 'http://localhost:11435/v1',
+  apiKey: 'not-needed',
+})
+
+const { choices } = await client.chat.completions.create({
+  model: 'superbrain-node-v1',
+  messages: [{ role: 'user', content: 'What is Bittensor?' }],
+})
+// response.sources contains the local chunks that backed the answer
+```
+
+Also works with [superbrain-sdk](https://github.com/KatchDaVizion/superbrain-sdk) — `query()` tries `localhost:11435` first automatically:
+
+```bash
+npm install superbrain-sdk
+```
+
+```js
+const { query } = require('superbrain-sdk')
+const result = await query('What is Bittensor?')  // hits local store if Node Mode is on
+```
+
+---
 
 ## Development
 

@@ -181,8 +181,6 @@ export interface NetworkSource {
   source: string
   timestamp: number
   node_id: string
-  hotkey?: string
-  category?: string
 }
 
 export interface NetworkQueryResult {
@@ -300,5 +298,57 @@ declare global {
     fileSystem: {
       getPathForFile: (file: File) => string
     }
+  }
+}
+
+// -----------------------
+// Node Mode API
+// -----------------------
+
+export type NetworkMode = 'lan' | 'i2p' | 'hybrid'
+
+export interface NodeModeConfig {
+  enabled: boolean
+  networkMode: NetworkMode
+  storageCapMb: number
+  port: number
+}
+
+export interface NodeModeStatus {
+  running: boolean
+  pid: number | null
+  chunksLocal: number
+  peersLan: number
+  lastSync: number | null
+  uptime: number | null
+  error: string | null
+}
+
+export interface NodeModeStartResult {
+  success: boolean
+  error?: string
+}
+
+export interface NodeModeApiInterface {
+  getConfig: () => Promise<NodeModeConfig>
+  setConfig: (config: Partial<NodeModeConfig>) => Promise<NodeModeStartResult | undefined>
+  status: () => Promise<NodeModeStatus>
+  start: () => Promise<NodeModeStartResult>
+  stop: () => Promise<void>
+}
+
+const NodeModeApi: NodeModeApiInterface = {
+  getConfig: () => ipcRenderer.invoke('node:mode:get-config'),
+  setConfig: (config) => ipcRenderer.invoke('node:mode:set-config', config),
+  status: () => ipcRenderer.invoke('node:mode:status'),
+  start: () => ipcRenderer.invoke('node:mode:start'),
+  stop: () => ipcRenderer.invoke('node:mode:stop'),
+}
+
+contextBridge.exposeInMainWorld('NodeModeApi', NodeModeApi)
+
+declare global {
+  interface Window {
+    NodeModeApi: NodeModeApiInterface
   }
 }

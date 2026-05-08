@@ -10,10 +10,13 @@ import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
 import { mesh } from '../p2p/meshNetwork'
 import { mempalace } from '../mempalace'
-import { signShare, getIdentityPublicKeyHex } from './signing'
 import { downloadZim, cancelDownload, getInstalledPacks, KNOWLEDGE_PACKS } from '../zim/zimDownloader'
 import { runBenchmark, getCachedBenchmark, getTierInfo } from '../benchmark/benchmarkService'
 import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/leaderboardService'
+import { getNodeModeService } from '@/lib/node/nodeModeService'
+import { getNetworkChunkStore } from '@/lib/node/networkChunkStore'
+import { getLocalApiServer } from '@/lib/node/localApiServer'
+import { signShare, getIdentityPublicKeyHex } from './signing'
 
 import {
   createThread,
@@ -566,8 +569,6 @@ export interface NetworkSource {
   source: string
   timestamp: number
   node_id: string
-  hotkey?: string
-  category?: string
 }
 
 export interface NetworkSearchResult {
@@ -584,7 +585,9 @@ export interface NetworkPoolStats {
 }
 
 /**
- * Network RAG query — query the SN442 knowledge pool via Frankfurt API.
+ * Network RAG query — query the SN442 knowledge pool.
+ * When Node Mode is ON: tries local Qdrant "network-chunks" first (semantic search).
+ * Falls back to Frankfurt API if local results are insufficient or Node Mode is off.
  */
 ipcMain.handle(
   'superbrain:network:query',
@@ -593,15 +596,48 @@ ipcMain.handle(
     query: string,
     options: { dbPath?: string; topK?: number; searchOnly?: boolean } = {}
   ): Promise<NetworkQueryResult | NetworkSearchResult> => {
+    const topK = options.topK || 5
+    const nodeSvc = getNodeModeService()
+
+    if (nodeSvc.getConfig().enabled) {
+      const chunkStore = getNetworkChunkStore()
+      const { results, sufficient } = await chunkStore.query(query, topK)
+
+      if (sufficient) {
+        const sources: NetworkSource[] = results.map((r) => ({
+          content: r.content,
+          content_hash: r.content_hash,
+          score: r.score,
+          relevance: r.score,
+          freshness: 1.0,
+          source: r.source,
+          timestamp: r.timestamp,
+          node_id: r.node_id,
+        }))
+
+        if (options.searchOnly) {
+          return { results: sources } as NetworkSearchResult
+        }
+
+        const answer = await chunkStore.generateAnswer(query, results)
+        return {
+          text: answer.text,
+          citations: answer.citations,
+          sources,
+          method: 'local-qdrant',
+          query,
+          generation_time: answer.time,
+        } as NetworkQueryResult
+      }
+
+      if (results.length > 0) {
+        console.log(`[NetworkRAG] local=${results.length} results below threshold, falling back to Frankfurt`)
+      }
+    }
+
     const SN442 = process.env.SB_API_URL || 'http://46.225.114.202:8400'
     try {
       if (options.searchOnly) {
-        // Real network search: POST to Frankfurt /query which runs extractive
-        // keyword scoring (title+content) across the ENTIRE public_chunks
-        // table — not just a recent /feed window. The endpoint returns top-3
-        // sources with full metadata (title, source URL, preview, timestamp,
-        // category, content_hash, hotkey, node_id) which we map 1:1 to
-        // NetworkSource so the renderer can show honest cards.
         const resp = await fetch(`${SN442}/query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -611,19 +647,15 @@ ipcMain.handle(
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
         const sources: any[] = data.sources || []
-        const results = sources.map((s: any) => ({
+        const searchResults = sources.map((s: any) => ({
           content: s.preview || '',
           content_hash: s.content_hash || '',
-          score: 1.0,
-          relevance: 1.0,
-          freshness: 1.0,
           source: s.title || s.source || 'Untitled',
           timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
           node_id: s.node_id || 'frankfurt',
-          hotkey: s.hotkey || '',
           category: s.category || 'general',
         }))
-        return { results }
+        return { results: searchResults }
       }
       const resp = await fetch(`${SN442}/query`, {
         method: 'POST',
@@ -632,20 +664,13 @@ ipcMain.handle(
         signal: AbortSignal.timeout(15000),
       })
       const data = await resp.json()
-      // Answer mode uses /query's rich `sources` array (title, preview, category,
-      // timestamp, content_hash, hotkey, node_id). Fall back to `citations` —
-      // plain title strings — only when `sources` is absent.
       const sources: any[] = Array.isArray(data.sources) && data.sources.length
         ? data.sources.map((s: any) => ({
             content: s.preview || '',
             content_hash: s.content_hash || '',
-            score: 1.0,
-            relevance: 1.0,
-            freshness: 1.0,
             source: s.title || s.source || 'Untitled',
             timestamp: typeof s.timestamp === 'number' ? s.timestamp : 0,
             node_id: s.node_id || 'frankfurt',
-            hotkey: s.hotkey || '',
             category: s.category || 'general',
           }))
         : (data.citations || []).map((c: any) => ({
@@ -834,27 +859,20 @@ ipcMain.handle(
 
       const ctrl = new AbortController()
       const timeout = setTimeout(() => ctrl.abort(), 10_000)
+      const shareBody = {
+        content: content.slice(0, 5_000),
+        title: payload.title || 'Untitled',
+        source: 'superbrain-desktop',
+        category: 'general',
+        contributor_hotkey: getIdentityPublicKeyHex(),
+      }
+      const { signature, public_key } = signShare(shareBody)
       let resp: Response
       try {
-        const shareBody = {
-          content: content.slice(0, 5_000),
-          title: payload.title || 'Untitled',
-          source: 'superbrain-desktop',
-          contributor_hotkey: '',
-        }
-        // Attribution-proof: sign the canonical subset the server verifies.
-        // On failure we fall back to unsigned (server accepts as legacy-unsigned).
-        let envelope: Record<string, unknown> = shareBody
-        try {
-          const sig = signShare(shareBody)
-          envelope = { ...shareBody, public_key: sig.public_key, signature: sig.signature }
-        } catch (sigErr) {
-          console.warn('[ShareToNetwork] signing failed, sending unsigned:', sigErr)
-        }
         resp = await fetch(dbPath, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(envelope),
+          body: JSON.stringify({ ...shareBody, signature, public_key }),
           signal: ctrl.signal,
         })
       } finally {
@@ -895,6 +913,82 @@ ipcMain.handle(
     }
   }
 )
+
+// -----------------------
+// Node Mode IPC
+// -----------------------
+
+async function preflightNodeMode(): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const tagsRes = await fetch('http://localhost:11434/api/tags', { signal: AbortSignal.timeout(3000) })
+    if (!tagsRes.ok) return { ok: false, error: 'Ollama is not running. Install Ollama and start it before enabling Node Mode.' }
+    const tagsData = (await tagsRes.json()) as { models?: { name: string }[] }
+    const hasEmbed = (tagsData.models ?? []).some((m) => m.name.startsWith('nomic-embed-text'))
+    if (!hasEmbed) return { ok: false, error: 'Run: ollama pull nomic-embed-text' }
+  } catch {
+    return { ok: false, error: 'Ollama is not running. Install Ollama and start it before enabling Node Mode.' }
+  }
+  try {
+    const qdrantRes = await fetch('http://localhost:6333/healthz', { signal: AbortSignal.timeout(3000) })
+    if (!qdrantRes.ok) return { ok: false, error: 'Qdrant is not running. See docs to install Qdrant locally.' }
+  } catch {
+    return { ok: false, error: 'Qdrant is not running. See docs to install Qdrant locally.' }
+  }
+  return { ok: true }
+}
+
+export async function startNodeMode(svc: ReturnType<typeof getNodeModeService>): Promise<{ success: boolean; error?: string }> {
+  const preflight = await preflightNodeMode()
+  if (!preflight.ok) return { success: false, error: preflight.error }
+  const store = getNetworkChunkStore()
+  store.configure(svc.getConfig().storageCapMb)
+  store.start()
+  svc.setOnChunksReceived(() => store.scheduleSync())
+  await svc.start()
+  getLocalApiServer().start()
+  return { success: true }
+}
+
+export function stopNodeMode(svc: ReturnType<typeof getNodeModeService>): void {
+  getLocalApiServer().stop()
+  getNetworkChunkStore().stop()
+  svc.setOnChunksReceived(null as any)
+  svc.stop()
+}
+
+ipcMain.handle('node:mode:get-config', () => {
+  return getNodeModeService().getConfig()
+})
+
+ipcMain.handle('node:mode:set-config', async (_event, config) => {
+  const svc = getNodeModeService()
+  svc.setConfig(config)
+  if (config.enabled === true) {
+    const result = await startNodeMode(svc)
+    if (!result.success) svc.setConfig({ enabled: false })
+    return result
+  } else if (config.enabled === false) {
+    stopNodeMode(svc)
+  }
+  return { success: true }
+})
+
+ipcMain.handle('node:mode:status', () => {
+  return getNodeModeService().getStatus()
+})
+
+ipcMain.handle('node:mode:start', async () => {
+  const svc = getNodeModeService()
+  const result = await startNodeMode(svc)
+  if (result.success) svc.setConfig({ enabled: true })
+  return result
+})
+
+ipcMain.handle('node:mode:stop', () => {
+  const svc = getNodeModeService()
+  svc.setConfig({ enabled: false })
+  stopNodeMode(svc)
+})
 
 // -----------------------
 // Create Main Window
@@ -1152,10 +1246,12 @@ ipcMain.handle('earnings:share-with-hotkey', async (_event, content: string, tit
   // Step 1: Frankfurt POST (unchanged behavior)
   let frankfurtResult: any
   try {
+    const hotkeybody = { content, title, source: 'superbrain-desktop', contributor_hotkey: hotkey }
+    const { signature: hkSig, public_key: hkPk } = signShare(hotkeybody)
     const resp = await fetch('http://46.225.114.202:8400/knowledge/share', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content, title, source: 'superbrain-desktop', contributor_hotkey: hotkey })
+      body: JSON.stringify({ ...hotkeybody, signature: hkSig, public_key: hkPk })
     })
     frankfurtResult = await resp.json()
   } catch {
@@ -1384,14 +1480,17 @@ ipcMain.handle(
         }
 
         try {
+          const chunkBody = {
+            content: text.substring(0, 5000),
+            title: typeof title === 'string' ? title : 'Shared Document',
+            source: 'superbrain-desktop-rag',
+            contributor_hotkey: getIdentityPublicKeyHex(),
+          }
+          const { signature: chunkSig, public_key: chunkPk } = signShare(chunkBody)
           await fetch(`${SN442_SEED}/knowledge/share`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              content: text.substring(0, 5000),
-              title: typeof title === 'string' ? title : 'Shared Document',
-              source: 'superbrain-desktop-rag',
-            }),
+            body: JSON.stringify({ ...chunkBody, signature: chunkSig, public_key: chunkPk }),
             signal: AbortSignal.timeout(5000),
           })
           submitted++
