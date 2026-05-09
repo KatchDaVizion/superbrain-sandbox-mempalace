@@ -343,6 +343,7 @@ export interface NodeModeApiInterface {
   runSetupCommand: (cmd: string) => Promise<NodeModeSetupResult>
   getHotkey: () => Promise<string>
   setHotkey: (hotkey: string) => Promise<{ success: boolean; error?: string }>
+  generateWallet: () => Promise<{ success: boolean; address?: string; mnemonic?: string; error?: string }>
 }
 
 const NodeModeApi: NodeModeApiInterface = {
@@ -354,6 +355,7 @@ const NodeModeApi: NodeModeApiInterface = {
   runSetupCommand: (cmd) => ipcRenderer.invoke('node:run-setup-command', cmd),
   getHotkey: () => ipcRenderer.invoke('node:get-hotkey'),
   setHotkey: (hotkey) => ipcRenderer.invoke('node:set-hotkey', hotkey),
+  generateWallet: () => ipcRenderer.invoke('node:generate-wallet'),
 }
 
 contextBridge.exposeInMainWorld('NodeModeApi', NodeModeApi)

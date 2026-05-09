@@ -1,7 +1,7 @@
 // app/components/node/NodeModePanel.tsx
 import { useState, useCallback, useEffect } from 'react'
 import { useTheme } from 'next-themes'
-import { Network, Wifi, Globe, HardDrive, Users, RefreshCw, Terminal, Check } from 'lucide-react'
+import { Network, Wifi, Globe, HardDrive, Users, RefreshCw, Terminal, Check, Plus, AlertTriangle, Copy } from 'lucide-react'
 import { useNodeMode } from '../../hooks/useNodeMode'
 import type { NetworkMode } from '../../../lib/preload/preload'
 
@@ -35,6 +35,9 @@ export function NodeModePanel() {
   const [hotkeySaving, setHotkeySaving] = useState(false)
   const [hotkeyError, setHotkeyError] = useState<string | null>(null)
   const [hotkeySaved, setHotkeySaved] = useState(false)
+  const [generating, setGenerating] = useState(false)
+  const [generatedWallet, setGeneratedWallet] = useState<{ address: string; mnemonic: string } | null>(null)
+  const [mnemonicCopied, setMnemonicCopied] = useState(false)
 
   useEffect(() => {
     window.NodeModeApi.getHotkey().then((h) => {
@@ -59,6 +62,38 @@ export function NodeModePanel() {
       setHotkeyError(result.error || 'Invalid hotkey')
     }
   }, [hotkey, hotkeyInput])
+
+  const generateWallet = useCallback(async () => {
+    setGenerating(true)
+    setGeneratedWallet(null)
+    try {
+      const result = await window.NodeModeApi.generateWallet()
+      if (result.success && result.address && result.mnemonic) {
+        setGeneratedWallet({ address: result.address, mnemonic: result.mnemonic })
+        setHotkeyInput(result.address)
+        const saved = await window.NodeModeApi.setHotkey(result.address)
+        if (saved.success) {
+          setHotkey(result.address)
+          setHotkeySaved(true)
+          setTimeout(() => setHotkeySaved(false), 3000)
+        }
+      } else {
+        setHotkeyError(result.error || 'Failed to generate wallet')
+      }
+    } catch {
+      setHotkeyError('Wallet generation failed')
+    } finally {
+      setGenerating(false)
+    }
+  }, [])
+
+  const copyMnemonic = useCallback(() => {
+    if (generatedWallet) {
+      navigator.clipboard.writeText(generatedWallet.mnemonic)
+      setMnemonicCopied(true)
+      setTimeout(() => setMnemonicCopied(false), 2000)
+    }
+  }, [generatedWallet])
 
   const runSetup = useCallback(async (cmd: string) => {
     setFixing(true)
@@ -249,12 +284,52 @@ export function NodeModePanel() {
           />
           {hotkeySaving && <RefreshCw size={13} className={`animate-spin ${textSub} shrink-0`} />}
           {hotkeySaved && <Check size={13} className="text-green-400 shrink-0" />}
+          <button
+            onClick={generateWallet}
+            disabled={generating}
+            title="Generate a new Bittensor wallet"
+            className={`flex items-center gap-1 px-2 py-1.5 rounded text-xs border transition-colors shrink-0 ${
+              dark
+                ? 'border-gray-600 text-gray-300 hover:border-blue-500 hover:text-blue-400 disabled:opacity-40'
+                : 'border-gray-300 text-gray-600 hover:border-blue-500 hover:text-blue-600 disabled:opacity-40'
+            }`}
+          >
+            {generating ? <RefreshCw size={11} className="animate-spin" /> : <Plus size={11} />}
+            New wallet
+          </button>
         </div>
         {hotkeyError && <p className="text-xs text-red-400 mt-1">{hotkeyError}</p>}
-        {!hotkey && (
+        {!hotkey && !generatedWallet && (
           <p className={`text-xs mt-1 ${textSub}`}>
             No hotkey set — contributions are anonymous
           </p>
+        )}
+
+        {/* Generated wallet reveal */}
+        {generatedWallet && (
+          <div className={`mt-3 p-3 rounded-lg border ${dark ? 'bg-yellow-900/20 border-yellow-700/50' : 'bg-yellow-50 border-yellow-300'}`}>
+            <div className={`flex items-center gap-1.5 text-xs font-semibold mb-2 ${dark ? 'text-yellow-400' : 'text-yellow-700'}`}>
+              <AlertTriangle size={12} />
+              Save your seed phrase — it cannot be recovered
+            </div>
+            <div className={`font-mono text-xs break-all leading-relaxed p-2 rounded ${dark ? 'bg-gray-900/60 text-gray-200' : 'bg-white text-gray-800'} border ${dark ? 'border-gray-700' : 'border-gray-200'}`}>
+              {generatedWallet.mnemonic}
+            </div>
+            <div className="flex items-center justify-between mt-2">
+              <span className={`text-xs ${textSub}`}>Address: <span className="font-mono">{generatedWallet.address.slice(0, 12)}…</span></span>
+              <button
+                onClick={copyMnemonic}
+                className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded border transition-colors ${
+                  mnemonicCopied
+                    ? 'border-green-500 text-green-400'
+                    : dark ? 'border-gray-600 text-gray-400 hover:border-gray-400' : 'border-gray-300 text-gray-600 hover:border-gray-500'
+                }`}
+              >
+                {mnemonicCopied ? <Check size={10} /> : <Copy size={10} />}
+                {mnemonicCopied ? 'Copied' : 'Copy phrase'}
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

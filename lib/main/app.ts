@@ -1014,6 +1014,24 @@ ipcMain.handle('node:set-hotkey', (_event, hotkey: string) => {
   return { success: true }
 })
 
+ipcMain.handle('node:generate-wallet', () => {
+  return new Promise<{ success: boolean; address?: string; mnemonic?: string; error?: string }>((resolve) => {
+    const script = `
+import bittensor
+m = bittensor.Keypair.generate_mnemonic()
+kp = bittensor.Keypair.create_from_mnemonic(m)
+print(kp.ss58_address)
+print(m)
+`
+    exec(`python3 -c "${script.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { timeout: 15_000 }, (err, stdout) => {
+      if (err) { resolve({ success: false, error: err.message }); return }
+      const lines = stdout.trim().split('\n')
+      if (lines.length < 2) { resolve({ success: false, error: 'Unexpected output' }); return }
+      resolve({ success: true, address: lines[0].trim(), mnemonic: lines[1].trim() })
+    })
+  })
+})
+
 // -----------------------
 // Create Main Window
 // -----------------------
