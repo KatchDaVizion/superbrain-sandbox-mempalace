@@ -15,7 +15,7 @@ SuperBrain AI is a **desktop AI chat application** built with **ElectronJS** and
 - **Privacy First:** You control which data leaves your machine — nothing is sent to OpenAI, Anthropic, or any cloud AI provider.
 
 ### SN442 Knowledge Network (Bittensor Subnet 442)
-- **Bittensor Mining:** Register a hotkey and earn TAO by contributing validated knowledge chunks to SN442.
+- **Bittensor Mining:** Generate a Bittensor keypair in-app, contribute validated knowledge chunks to SN442, and earn TAO attributions. On-chain hotkey registration (required before TAO is distributed to you) is a one-time step done separately via `btcli subnet register`.
 - **RAG over the network:** Ask questions via the `/query` endpoint and get answers backed by peer-contributed, on-chain validated knowledge.
 - **Live Feed:** Real-time stream of knowledge being validated across SN442 agents (arXiv, YouTube, Reddit, HackerNews, Wikipedia, and more).
 - **Earnings Dashboard:** See your hotkey's chunk count, retrievals, and estimated TAO earnings, read directly from the subnet metagraph.
@@ -153,7 +153,7 @@ SuperBrain is **offline-first**. AI inference, your knowledge store, and your ch
 | Knowledge store (RAG, ZIM) | **No** | Qdrant and ZIM files run on your disk |
 | Model downloads | **Yes** | Fetches Ollama models on first pull |
 | Knowledge sharing | **Yes** | Syncs chunks with other nodes so you earn TAO when someone retrieves them |
-| Bittensor chain | **Yes** | Required to register a hotkey, read stake, and collect TAO rewards |
+| Bittensor chain | **Yes** | Read stake and check earnings. On-chain hotkey registration is a separate step via `btcli` — the app generates your keypair locally. |
 | P2P peer sync | **Yes** | Connects to the Frankfurt seed node on first launch to discover peers |
 
 ---
