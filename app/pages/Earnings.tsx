@@ -106,13 +106,18 @@ const Earnings = () => {
   const [position, setPosition] = useState<ValidatorPosition | null>(null)
   const [positionLoading, setPositionLoading] = useState(false)
 
-  // Load hotkey from localStorage
+  // Load hotkey from config.json via IPC
   useEffect(() => {
-    const saved = localStorage.getItem('sb_contributor_hotkey')
-    if (saved) {
-      setHotkey(saved)
-      setHotkeyInput(saved)
+    const load = async () => {
+      try {
+        const saved = await (window as any).NodeModeApi?.getHotkey()
+        if (saved) {
+          setHotkey(saved)
+          setHotkeyInput(saved)
+        }
+      } catch { /* NodeModeApi unavailable */ }
     }
+    load()
   }, [])
 
   // Live mesh peer count — initial fetch + push updates from main process
@@ -223,10 +228,12 @@ const Earnings = () => {
     return `${Math.floor(sec / 3600)}h ago`
   }
 
-  const saveHotkey = () => {
+  const saveHotkey = async () => {
     const trimmed = hotkeyInput.trim()
     if (trimmed) {
-      localStorage.setItem('sb_contributor_hotkey', trimmed)
+      try {
+        await (window as any).NodeModeApi?.setHotkey(trimmed)
+      } catch { /* NodeModeApi unavailable */ }
       setHotkey(trimmed)
       setEditing(false)
     }

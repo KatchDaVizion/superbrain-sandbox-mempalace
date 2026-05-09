@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../components/shared/DashboardLayout'
 import ShareHistory from '../components/chat/ShareHistory'
+import { NodeModePanel } from '../components/node/NodeModePanel'
 import { useTheme } from 'next-themes'
 import { Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react'
 
@@ -204,6 +205,18 @@ const Settings = () => {
           </div>
         </div>
 
+
+        {/* Node Mode */}
+        <div
+          className={`border rounded-lg p-6 mb-4 ${
+            resolvedTheme === "dark" ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200"
+          }`}
+        >
+          <h2 className={`text-lg font-semibold mb-4 ${resolvedTheme === "dark" ? "text-white" : "text-gray-900"}`}>
+            Node Mode
+          </h2>
+          <NodeModePanel />
+        </div>
 
         {/* Network Sharing History */}
         <div
