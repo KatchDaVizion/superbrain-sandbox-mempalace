@@ -178,7 +178,7 @@ const Earnings = () => {
     return () => clearInterval(interval)
   }, [fetchValidatorLog])
 
-  // Real on-chain coldkey balance via btcli
+  // Real on-chain coldkey balance via btcli — probed immediately on mount
   const fetchBalance = useCallback(async () => {
     setBalanceLoading(true)
     try {
@@ -190,6 +190,8 @@ const Earnings = () => {
       setBalanceLoading(false)
     }
   }, [walletName])
+
+  useEffect(() => { fetchBalance() }, [])  // probe btcli availability on mount
 
   // Frankfurt validator position from /metagraph (UID 1 = validator)
   const fetchPosition = useCallback(async () => {
@@ -435,9 +437,23 @@ const Earnings = () => {
               <div className={`text-xs py-4 text-center ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
                 Querying chain via btcli...
               </div>
+            ) : balance?.error && balance.error.toLowerCase().includes('btcli') ? (
+              <div className={`text-xs py-3 ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <div className="font-medium mb-1">btcli not installed</div>
+                <div className={`${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Install the Bittensor CLI to check your local coldkey balance:
+                </div>
+                <code className={`block mt-1.5 px-2 py-1 rounded text-[10px] font-mono ${dark ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-100 text-zinc-700'}`}>
+                  pip install bittensor
+                </code>
+                <div className={`mt-1.5 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
+                  Cloud miners can check balance at{' '}
+                  <span className="font-mono">taostats.io</span> using their hotkey.
+                </div>
+              </div>
             ) : (
               <div className={`text-xs py-3 ${dark ? 'text-red-400/80' : 'text-red-600/80'}`}>
-                {balance?.error || 'No balance yet — click Refresh.'}
+                {balance?.error || 'Checking...'}
               </div>
             )}
           </div>

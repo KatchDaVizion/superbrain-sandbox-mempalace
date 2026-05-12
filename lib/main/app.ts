@@ -142,26 +142,6 @@ app.whenReady().then(async () => {
 })
 
 app.whenReady().then(async () => {
-  // Start P2P sync service
-  p2pSync.start().catch(err => console.warn('[P2P] Start failed:', err))
-
-  // When peer sends us a chunk — ingest into local Qdrant automatically
-  p2pSync.on('new-chunk', async (chunk: any) => {
-    try {
-      await ingestTextContent(chunk.content, chunk.title || 'P2P Chunk', {
-        tags: ['p2p-received', 'peer-knowledge'],
-        source: chunk.peer_url || 'unknown-peer'
-      })
-      console.log(`[P2P→Qdrant] Ingested: ${chunk.title}`)
-    } catch (err) {
-      console.warn('[P2P→Qdrant] Failed:', (err as Error).message)
-    }
-  })
-
-  p2pSync.on('ready', ({ nodeId, url }: { nodeId: string, url: string }) => {
-    console.log(`[P2P] Ready — ${nodeId} at ${url}`)
-  })
-
   // Start the Hyperswarm mesh layer (silent fail — Frankfurt remains authoritative)
   mesh.start().then((ok) => {
     if (ok) console.log('[mesh] Hyperswarm mesh active')

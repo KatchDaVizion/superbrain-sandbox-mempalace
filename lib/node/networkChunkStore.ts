@@ -12,11 +12,25 @@ const COLLECTION = 'network-chunks'
 const QDRANT_URL = 'http://localhost:6333'
 const OLLAMA_URL = 'http://localhost:11434'
 const EMBED_MODEL = 'nomic-embed-text'
-const ANSWER_MODEL = 'qwen2.5:0.5b'
+const ANSWER_MODEL_FALLBACK = 'qwen2.5:0.5b'
 const MIN_SCORE = 0.45
 const MIN_RESULTS = 3
 const POLL_INTERVAL_MS = 60_000
 const INGEST_BATCH = 50
+
+// Resolve the first Ollama model the user actually has installed.
+// Falls back to qwen2.5:0.5b so existing dev setups keep working.
+async function resolveAnswerModel(): Promise<string> {
+  try {
+    const res = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(3_000) })
+    if (res.ok) {
+      const data = (await res.json()) as { models?: { name: string }[] }
+      const first = data.models?.[0]?.name
+      if (first) return first
+    }
+  } catch { /* Ollama not running — fall through */ }
+  return ANSWER_MODEL_FALLBACK
+}
 
 export interface LocalChunkResult {
   content: string
@@ -201,10 +215,11 @@ export class NetworkChunkStore {
         `Answer the question using the context below. Cite sources as [1], [2], etc.\n\n` +
         `Context:\n${context}\n\nQuestion: ${query}\n\nAnswer:`
 
+      const model = await resolveAnswerModel()
       const res = await fetch(`${OLLAMA_URL}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: ANSWER_MODEL, prompt, stream: false }),
+        body: JSON.stringify({ model, prompt, stream: false }),
       })
 
       if (!res.ok) throw new Error(`Ollama generate ${res.status}`)

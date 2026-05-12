@@ -1,5 +1,5 @@
 import 'leaflet/dist/leaflet.css'
-import { Routes, Route, HashRouter } from 'react-router-dom'
+import { Routes, Route, HashRouter, Navigate } from 'react-router-dom'
 import { ThemeProvider } from 'next-themes'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import Home from './pages/Home'
@@ -39,6 +39,7 @@ const App = () => {
                 <Route path="/leaderboard" element={<Leaderboard />} />
                 <Route path="/memory-palace" element={<MemoryPalace />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </HashRouter>
           </TooltipProvider>
