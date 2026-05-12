@@ -26,8 +26,8 @@ const Home = () => {
             }`}
           >
             <p className={`text-sm ${resolvedTheme === 'dark' ? 'text-blue-300' : 'text-blue-700'}`}>
-              <strong>Phase 2:</strong> SuperBrain routes queries through Targon (SN4) for inference, Chutes (SN64) for
-              compute, and Data Universe (SN13) for storage — one query, five subnets earning TAO.
+              <strong>Live on Bittensor SN442:</strong> Your node syncs knowledge peer-to-peer, earns TAO for verified
+              contributions, and answers queries using local Ollama inference — fully private, no cloud required.
             </p>
           </div>
         </div>

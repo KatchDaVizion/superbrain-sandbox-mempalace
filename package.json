@@ -36,6 +36,10 @@
       "output": "dist-installer",
       "buildResources": "build-resources"
     },
+    "extraResources": [
+      { "from": "resources/scripts/run_sync_node.py", "to": "scripts/run_sync_node.py" },
+      { "from": "lib/node/ingest_chunks.py", "to": "scripts/ingest_chunks.py" }
+    ],
     "files": [
       "out/**/*",
       "resources/**/*",

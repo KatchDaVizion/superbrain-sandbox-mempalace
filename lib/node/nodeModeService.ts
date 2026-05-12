@@ -102,8 +102,10 @@ export class NodeModeService {
   async start(): Promise<void> {
     if (this._proc && this._proc.exitCode === null) return
 
-    const subnetDir = join(os.homedir(), 'superbrain-subnet')
-    const script = join(subnetDir, 'run_sync_node.py')
+    const script = app.isPackaged
+      ? join(process.resourcesPath, 'scripts', 'run_sync_node.py')
+      : join(os.homedir(), 'superbrain-subnet', 'run_sync_node.py')
+    const cwd = app.isPackaged ? join(process.resourcesPath, 'scripts') : join(os.homedir(), 'superbrain-subnet')
 
     if (!existsSync(script)) {
       this._lastError = `run_sync_node.py not found at ${script}`
@@ -119,7 +121,7 @@ export class NodeModeService {
     this._peersLan = 0
 
     this._proc = spawn(args[0], args.slice(1), {
-      cwd: subnetDir,
+      cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: false,
     })

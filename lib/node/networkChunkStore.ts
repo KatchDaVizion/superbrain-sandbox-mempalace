@@ -51,9 +51,10 @@ export class NetworkChunkStore {
     const userData = app.getPath('userData')
     this._dbPath = join(userData, 'node-chunks.db')
     this._cursorPath = join(userData, 'network-chunk-cursor.json')
-    // Resolve script relative to app root (works in dev; packaged builds bundle differently)
-    const appRoot = app.isPackaged ? join(process.resourcesPath, 'app') : app.getAppPath()
-    this._scriptPath = join(appRoot, 'lib', 'node', 'ingest_chunks.py')
+    // Packaged: bundled via extraResources → resources/scripts/ingest_chunks.py
+    this._scriptPath = app.isPackaged
+      ? join(process.resourcesPath, 'scripts', 'ingest_chunks.py')
+      : join(app.getAppPath(), 'lib', 'node', 'ingest_chunks.py')
     this._loadCursor()
   }
 
