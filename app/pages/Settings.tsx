@@ -3,7 +3,11 @@ import DashboardLayout from '../components/shared/DashboardLayout'
 import ShareHistory from '../components/chat/ShareHistory'
 import { NodeModePanel } from '../components/node/NodeModePanel'
 import { useTheme } from 'next-themes'
-import { Sun, Moon, Monitor, Volume2, VolumeX } from 'lucide-react'
+import { Sun, Moon, Monitor, Volume2, VolumeX, ExternalLink } from 'lucide-react'
+
+const CURRENT_VERSION = '12.0.0'
+const RELEASES_URL = 'https://github.com/KatchDaVizion/superbrain-sandbox-mempalace/releases'
+const RELEASES_API = 'https://api.github.com/repos/KatchDaVizion/superbrain-sandbox-mempalace/releases/latest'
 
 const VOICE_STORAGE_KEY = 'superbrain-voice-settings'
 
@@ -14,28 +18,35 @@ interface VoiceSettings {
   handsFreeMode: boolean
 }
 
-function loadVoiceSettings(): VoiceSettings {
+const VOICE_DEFAULTS: VoiceSettings = { voiceEnabled: false, speechRate: 1, selectedVoice: '', handsFreeMode: false }
+
+function loadVoiceSettingsSync(): VoiceSettings {
   try {
     const raw = localStorage.getItem(VOICE_STORAGE_KEY)
     if (raw) return JSON.parse(raw)
-  } catch {
-    // ignore
-  }
-  return { voiceEnabled: false, speechRate: 1, selectedVoice: '', handsFreeMode: false }
+  } catch { /* ignore */ }
+  return VOICE_DEFAULTS
 }
 
-function saveVoiceSettings(settings: VoiceSettings) {
-  try {
-    localStorage.setItem(VOICE_STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // ignore
-  }
+async function saveVoiceSettings(settings: VoiceSettings) {
+  try { localStorage.setItem(VOICE_STORAGE_KEY, JSON.stringify(settings)) } catch { /* ignore */ }
+  try { await (window as any).electron.invoke('settings:set-voice', settings) } catch { /* ignore */ }
 }
 
 const Settings = () => {
   const { theme, resolvedTheme, setTheme } = useTheme()
-  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(loadVoiceSettings)
+  const [voiceSettings, setVoiceSettings] = useState<VoiceSettings>(loadVoiceSettingsSync)
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([])
+
+  // Hydrate from config.json on mount (overrides localStorage if config has settings)
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const saved = await (window as any).electron.invoke('settings:get-voice')
+        if (saved) setVoiceSettings(saved)
+      } catch { /* ignore */ }
+    })()
+  }, [])
 
   useEffect(() => {
     if (!window.speechSynthesis) return
@@ -50,10 +61,24 @@ const Settings = () => {
   const updateVoiceSetting = <K extends keyof VoiceSettings>(key: K, value: VoiceSettings[K]) => {
     setVoiceSettings((prev) => {
       const next = { ...prev, [key]: value }
-      saveVoiceSettings(next)
+      saveVoiceSettings(next) // async — fire and forget
       return next
     })
   }
+
+  const [updateInfo, setUpdateInfo] = useState<{ latest: string; hasUpdate: boolean } | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch(RELEASES_API, { signal: AbortSignal.timeout(5_000) })
+        if (!res.ok) return
+        const data = await res.json() as { tag_name?: string }
+        const latest = (data.tag_name ?? '').replace(/^v/, '')
+        if (latest) setUpdateInfo({ latest, hasUpdate: latest !== CURRENT_VERSION })
+      } catch { /* network unavailable — skip silently */ }
+    })()
+  }, [])
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
@@ -237,9 +262,32 @@ const Settings = () => {
         >
           <h2 className={`text-lg font-semibold mb-4 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>About</h2>
           <div className={`space-y-2 text-sm ${resolvedTheme === 'dark' ? 'text-gray-400' : 'text-gray-600'}`}>
-            <p>SuperBrain Desktop v1.0.0</p>
+            <p>SuperBrain Desktop v{CURRENT_VERSION}</p>
             <p>Bittensor Subnet 442 (Testnet)</p>
             <p>17779011 CANADA INC.</p>
+            {updateInfo && (
+              <div className={`mt-3 rounded-md px-3 py-2 text-xs ${
+                updateInfo.hasUpdate
+                  ? resolvedTheme === 'dark' ? 'bg-blue-900/30 border border-blue-500/30 text-blue-300' : 'bg-blue-50 border border-blue-200 text-blue-700'
+                  : resolvedTheme === 'dark' ? 'text-gray-500' : 'text-gray-400'
+              }`}>
+                {updateInfo.hasUpdate ? (
+                  <span className="flex items-center gap-1.5">
+                    Update available: v{updateInfo.latest}
+                    <a
+                      href={RELEASES_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-0.5 underline"
+                    >
+                      Download <ExternalLink size={10} />
+                    </a>
+                  </span>
+                ) : (
+                  <span>Up to date (v{CURRENT_VERSION})</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

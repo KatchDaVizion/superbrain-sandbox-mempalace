@@ -86,7 +86,18 @@ for i in $(seq 1 15); do
   sleep 1
 done
 
-# ── 5. Final check ────────────────────────────────────────────────────────────
+# ── 5. MemPalace (optional — cross-session memory layer) ──────────────────────
+if [ -f "$HOME/.mempalace-venv/bin/mempalace" ]; then
+  ok "MemPalace already installed"
+else
+  info "Installing MemPalace (~50 MB Python package)..."
+  python3 -m venv "$HOME/.mempalace-venv"
+  "$HOME/.mempalace-venv/bin/pip" install mempalace --quiet
+  "$HOME/.mempalace-venv/bin/mempalace" init
+  ok "MemPalace installed and initialized at ~/.mempalace"
+fi
+
+# ── 6. Final check ────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Status:${NC}"
 
@@ -106,6 +117,12 @@ if curl -sf http://localhost:6333/healthz &>/dev/null; then
   ok "Qdrant running on :6333"
 else
   echo -e "${RED}✗${NC} Qdrant not responding — run: docker start qdrant"
+fi
+
+if [ -f "$HOME/.mempalace-venv/bin/mempalace" ]; then
+  ok "MemPalace installed"
+else
+  echo -e "${RED}✗${NC} MemPalace missing — re-run this script"
 fi
 
 echo ""

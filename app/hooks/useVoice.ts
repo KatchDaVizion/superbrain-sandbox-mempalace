@@ -36,11 +36,8 @@ function loadSettings(): VoiceSettings {
 }
 
 function saveSettings(settings: VoiceSettings) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings))
-  } catch {
-    // ignore
-  }
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)) } catch { /* ignore */ }
+  try { (window as any).electron?.invoke('settings:set-voice', settings) } catch { /* ignore */ }
 }
 
 function stripMarkdown(text: string): string {
@@ -110,6 +107,16 @@ export function useVoice(options: UseVoiceOptions = {}) {
   useEffect(() => {
     saveSettings(settings)
   }, [settings])
+
+  // Hydrate from config.json on mount (survives userData wipes; localStorage is the sync fallback)
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const saved = await (window as any).electron?.invoke('settings:get-voice')
+        if (saved) setSettings(saved)
+      } catch { /* ignore — localStorage values remain */ }
+    })()
+  }, [])
 
   // Check browser support
   useEffect(() => {

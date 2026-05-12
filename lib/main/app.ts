@@ -995,6 +995,29 @@ ipcMain.handle('node:set-hotkey', (_event, hotkey: string) => {
   return { success: true }
 })
 
+// Voice settings — stored in superbrain-config.json (survives userData wipes)
+ipcMain.handle('settings:get-voice', async () => {
+  try {
+    const { readFileSync } = await import('fs')
+    const configFile = join(app.getPath('userData'), 'superbrain-config.json')
+    const cfg = JSON.parse(readFileSync(configFile, 'utf8'))
+    return cfg.voiceSettings ?? null
+  } catch { return null }
+})
+
+ipcMain.handle('settings:set-voice', async (_event, settings: unknown) => {
+  try {
+    const { readFileSync, writeFileSync, mkdirSync } = await import('fs')
+    const configFile = join(app.getPath('userData'), 'superbrain-config.json')
+    let cfg: Record<string, unknown> = {}
+    try { cfg = JSON.parse(readFileSync(configFile, 'utf8')) } catch {}
+    cfg.voiceSettings = settings
+    mkdirSync(app.getPath('userData'), { recursive: true })
+    writeFileSync(configFile, JSON.stringify(cfg, null, 2))
+    return true
+  } catch { return false }
+})
+
 // base58 alphabet (Bitcoin/Substrate standard — no 0, O, I, l)
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 function base58Encode(buf: Buffer): string {
