@@ -37,8 +37,14 @@
       "buildResources": "build-resources"
     },
     "extraResources": [
-      { "from": "resources/scripts/run_sync_node.py", "to": "scripts/run_sync_node.py" },
-      { "from": "lib/node/ingest_chunks.py", "to": "scripts/ingest_chunks.py" }
+      {
+        "from": "resources/scripts/run_sync_node.py",
+        "to": "scripts/run_sync_node.py"
+      },
+      {
+        "from": "lib/node/ingest_chunks.py",
+        "to": "scripts/ingest_chunks.py"
+      }
     ],
     "files": [
       "out/**/*",
@@ -48,8 +54,18 @@
     ],
     "linux": {
       "target": [
-        { "target": "deb", "arch": ["x64"] },
-        { "target": "AppImage", "arch": ["x64"] }
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
       ],
       "category": "Network",
       "maintainer": "KatchDaVizion <david.louischarles@gmail.com>",
@@ -94,6 +110,7 @@
     "@types/leaflet": "^1.9.21",
     "axios": "^1.13.2",
     "better-react-mathjax": "^2.3.0",
+    "bip39": "^3.1.0",
     "cheerio": "^1.1.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

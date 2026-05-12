@@ -6,6 +6,7 @@ import { pathToFileURL } from 'url'
 import os from 'os'
 import { execSync, exec, execFile } from 'child_process'
 import crypto from 'crypto'
+import * as bip39 from 'bip39'
 import { ZimService } from '../zim/zimService'
 import { p2pSync } from '../p2p/p2pSyncService'
 import { mesh } from '../p2p/meshNetwork'
@@ -1014,22 +1015,48 @@ ipcMain.handle('node:set-hotkey', (_event, hotkey: string) => {
   return { success: true }
 })
 
-ipcMain.handle('node:generate-wallet', () => {
-  return new Promise<{ success: boolean; address?: string; mnemonic?: string; error?: string }>((resolve) => {
-    const script = `
-import bittensor
-m = bittensor.Keypair.generate_mnemonic()
-kp = bittensor.Keypair.create_from_mnemonic(m)
-print(kp.ss58_address)
-print(m)
-`
-    exec(`python3 -c "${script.replace(/"/g, '\\"').replace(/\n/g, ' ')}"`, { timeout: 15_000 }, (err, stdout) => {
-      if (err) { resolve({ success: false, error: err.message }); return }
-      const lines = stdout.trim().split('\n')
-      if (lines.length < 2) { resolve({ success: false, error: 'Unexpected output' }); return }
-      resolve({ success: true, address: lines[0].trim(), mnemonic: lines[1].trim() })
-    })
-  })
+// base58 alphabet (Bitcoin/Substrate standard — no 0, O, I, l)
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+function base58Encode(buf: Buffer): string {
+  let num = BigInt('0x' + buf.toString('hex'))
+  let result = ''
+  while (num > 0n) {
+    result = BASE58_ALPHABET[Number(num % 58n)] + result
+    num = num / 58n
+  }
+  for (const byte of buf) {
+    if (byte !== 0) break
+    result = '1' + result
+  }
+  return result
+}
+
+ipcMain.handle('node:generate-wallet', async () => {
+  try {
+    // 12-word BIP39 mnemonic (128-bit entropy, pure JS — no Python required)
+    const mnemonic = bip39.generateMnemonic()
+    const seed = bip39.mnemonicToSeedSync(mnemonic) // 64-byte Buffer
+
+    // Ed25519 keypair from seed using Node built-in crypto (same technique as signing.ts)
+    const PKCS8_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex')
+    const privDer = Buffer.concat([PKCS8_PREFIX, Buffer.from(seed).slice(0, 32)])
+    const privateKey = crypto.createPrivateKey({ key: privDer, format: 'der', type: 'pkcs8' })
+    const spki = crypto.createPublicKey(privateKey).export({ format: 'der', type: 'spki' }) as Buffer
+    const publicKey = Buffer.from(spki).slice(-32) // raw 32-byte Ed25519 pubkey
+
+    // SS58 encode with Substrate generic prefix 42 → addresses always start with "5"
+    const payload = Buffer.concat([Buffer.from([42]), publicKey])
+    const checksum = crypto.createHash('blake2b512')
+      .update(Buffer.from('SS58PRE', 'utf8'))
+      .update(payload)
+      .digest()
+      .slice(0, 2)
+    const address = base58Encode(Buffer.concat([payload, checksum]))
+
+    return { success: true, address, mnemonic }
+  } catch (err: unknown) {
+    return { success: false, error: (err as Error).message }
+  }
 })
 
 // -----------------------

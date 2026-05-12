@@ -1,0 +1,60 @@
+name: Build SuperBrain
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install + build (linux)
+        run: |
+          cd desktop
+          npm install --legacy-peer-deps
+          npm run build:linux
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superbrain-linux
+          path: desktop/dist-installer/*.AppImage
+
+  build-mac:
+    runs-on: macos-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install + build (mac)
+        run: |
+          cd desktop
+          npm install --legacy-peer-deps
+          npm run build:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superbrain-mac
+          path: desktop/dist-installer/*.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install + build (win)
+        run: |
+          cd desktop
+          npm install --legacy-peer-deps
+          npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: superbrain-windows
+          path: desktop/dist-installer/*.exe

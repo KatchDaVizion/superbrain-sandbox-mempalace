@@ -191,27 +191,55 @@ export default function MemoryPalace() {
           highest-scoring open-source memory benchmark (96.6% LongMemEval R@5).
         </p>
 
-        {/* Active-status banner — proves the layer is wired into the chat */}
-        <div
-          className={`rounded-lg px-4 py-3 mb-6 border text-sm flex items-start gap-3 ${
-            statusLoading
-              ? isDark ? 'bg-zinc-800/50 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-500'
-              : palaceAlive
-                ? isDark ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : isDark ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-amber-50 border-amber-200 text-amber-700'
-          }`}
-        >
-          <span className="text-base leading-none mt-0.5">
-            {statusLoading ? '⏳' : palaceAlive ? '✅' : '⚠️'}
-          </span>
-          <span>
-            {statusLoading
-              ? 'Querying mempalace subprocess…'
-              : palaceAlive
-                ? 'Memory active — past session context is being injected into every chat message.'
-                : 'Memory inactive — start chatting to build your palace, or run mempalace mine to bootstrap.'}
-          </span>
-        </div>
+        {/* Active-status banner */}
+        {!statusLoading && !palaceAlive ? (
+          <div
+            className={`rounded-lg px-4 py-4 mb-6 border text-sm ${
+              isDark ? 'bg-zinc-800/60 border-zinc-700' : 'bg-zinc-50 border-zinc-200'
+            }`}
+          >
+            <div className={`font-semibold mb-2 ${isDark ? 'text-zinc-100' : 'text-zinc-800'}`}>
+              Memory Palace — setup required
+            </div>
+            <p className={`mb-3 leading-relaxed ${isDark ? 'text-zinc-400' : 'text-zinc-600'}`}>
+              The memory layer runs on <strong>MemPalace</strong>, a local Python service that is not yet installed.
+              Once set up, it injects your past session context into every chat automatically.
+            </p>
+            <div
+              className={`rounded-md p-3 font-mono text-xs mb-3 ${
+                isDark ? 'bg-zinc-900 text-zinc-300' : 'bg-zinc-100 text-zinc-700'
+              }`}
+            >
+              <div className={`text-xs uppercase tracking-wide mb-2 ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                Install (run once in terminal)
+              </div>
+              <div>python3 -m venv ~/.mempalace-venv</div>
+              <div>~/.mempalace-venv/bin/pip install mempalace</div>
+              <div>~/.mempalace-venv/bin/mempalace init</div>
+            </div>
+            <p className={`text-xs ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+              After installing, restart the app and this page will activate automatically. The identity editor below
+              is available without installation.
+            </p>
+          </div>
+        ) : (
+          <div
+            className={`rounded-lg px-4 py-3 mb-6 border text-sm flex items-start gap-3 ${
+              statusLoading
+                ? isDark ? 'bg-zinc-800/50 border-zinc-700 text-zinc-400' : 'bg-zinc-100 border-zinc-200 text-zinc-500'
+                : isDark ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+            }`}
+          >
+            <span className="text-base leading-none mt-0.5">
+              {statusLoading ? '⏳' : '✅'}
+            </span>
+            <span>
+              {statusLoading
+                ? 'Querying mempalace subprocess…'
+                : 'Memory active — past session context is being injected into every chat message.'}
+            </span>
+          </div>
+        )}
 
         {/* ── SECTION 1: STATUS BAR ───────────────────────────────────── */}
         <div className={`rounded-xl p-5 mb-6 border ${cardBg}`}>
@@ -284,7 +312,7 @@ export default function MemoryPalace() {
             <div className={`text-sm ${textMuted} py-2`}>
               {statusLoading
                 ? 'Querying mempalace subprocess…'
-                : 'No palace found at ~/.mempalace/palace. Run `mempalace init && mempalace mine` to bootstrap.'}
+                : 'MemPalace not installed. Follow the setup instructions above to activate.'}
               <div className={`text-xs mt-2 ${textSubtle}`}>
                 Wings: {wingNames}
               </div>
