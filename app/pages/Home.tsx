@@ -1,15 +1,46 @@
 import DashboardLayout from '../components/shared/DashboardLayout'
 import { useTheme } from 'next-themes'
-import { Globe, Shield, Cpu, Zap } from 'lucide-react'
+import { Globe, Shield, Cpu, Zap, X } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
 
 const Home = () => {
   const { theme, resolvedTheme } = useTheme()
   const navigate = useNavigate()
+  const [updateBanner, setUpdateBanner] = useState<{ latest: string; releaseUrl: string } | null>(null)
+
+  useEffect(() => {
+    window.electron.invoke('app:check-update').then((result: any) => {
+      if (result?.updateAvailable) {
+        setUpdateBanner({ latest: result.latest, releaseUrl: result.releaseUrl })
+      }
+    }).catch(() => {})
+  }, [])
 
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full w-full max-w-4xl mx-auto">
+        {/* Update banner */}
+        {updateBanner && (
+          <div className={`flex items-center justify-between gap-3 rounded-lg px-4 py-3 mb-4 text-sm border ${
+            resolvedTheme === 'dark'
+              ? 'bg-blue-950/40 border-blue-500/30 text-blue-200'
+              : 'bg-blue-50 border-blue-200 text-blue-800'
+          }`}>
+            <span>
+              SuperBrain <strong>v{updateBanner.latest}</strong> is available.{' '}
+              <button
+                onClick={() => window.electron.invoke('shell:open-external', updateBanner.releaseUrl)}
+                className="underline underline-offset-2 hover:opacity-80"
+              >
+                Download
+              </button>
+            </span>
+            <button onClick={() => setUpdateBanner(null)} className="shrink-0 opacity-60 hover:opacity-100">
+              <X size={14} />
+            </button>
+          </div>
+        )}
         {/* Hero */}
         <div className="mb-12 mt-8">
           <h1 className={`text-4xl font-bold mb-6 ${resolvedTheme === 'dark' ? 'text-white' : 'text-gray-900'}`}>

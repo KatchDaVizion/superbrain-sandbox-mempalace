@@ -1018,6 +1018,36 @@ ipcMain.handle('settings:set-voice', async (_event, settings: unknown) => {
   } catch { return false }
 })
 
+ipcMain.handle('shell:open-external', (_event, url: string) => {
+  if (typeof url === 'string' && (url.startsWith('https://') || url.startsWith('http://'))) {
+    shell.openExternal(url)
+  }
+})
+
+// Version check — compares running version against latest GitHub release
+ipcMain.handle('app:check-update', async () => {
+  const current = app.getVersion()
+  try {
+    const res = await net.fetch(
+      'https://api.github.com/repos/KatchDaVizion/superbrain-sandbox-mempalace/releases/latest',
+      { headers: { 'User-Agent': `SuperBrain/${current}` } }
+    )
+    if (!res.ok) return { current, latest: current, updateAvailable: false }
+    const data = await res.json() as { tag_name?: string; html_url?: string }
+    const latest = (data.tag_name ?? current).replace(/^v/, '')
+    const a = latest.split('.').map(Number)
+    const b = current.split('.').map(Number)
+    let updateAvailable = false
+    for (let i = 0; i < 3; i++) {
+      if ((a[i] ?? 0) > (b[i] ?? 0)) { updateAvailable = true; break }
+      if ((a[i] ?? 0) < (b[i] ?? 0)) break
+    }
+    return { current, latest, updateAvailable, releaseUrl: data.html_url ?? '' }
+  } catch {
+    return { current, latest: current, updateAvailable: false }
+  }
+})
+
 // base58 alphabet (Bitcoin/Substrate standard — no 0, O, I, l)
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 function base58Encode(buf: Buffer): string {
