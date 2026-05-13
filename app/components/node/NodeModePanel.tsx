@@ -30,6 +30,8 @@ export function NodeModePanel() {
   const { config, status, loading, toggle, setConfig, startError, refresh } = useNodeMode()
   const [fixing, setFixing] = useState(false)
   const [fixResult, setFixResult] = useState<string | null>(null)
+  const [i2pStatus, setI2pStatus] = useState<{ installed: boolean; running: boolean } | null>(null)
+  const [i2pChecking, setI2pChecking] = useState(false)
   const [hotkey, setHotkey] = useState('')
   const [hotkeyInput, setHotkeyInput] = useState('')
   const [hotkeySaving, setHotkeySaving] = useState(false)
@@ -38,6 +40,20 @@ export function NodeModePanel() {
   const [generating, setGenerating] = useState(false)
   const [generatedWallet, setGeneratedWallet] = useState<{ address: string; mnemonic: string } | null>(null)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
+
+  useEffect(() => {
+    if (config?.networkMode !== 'i2p' && config?.networkMode !== 'hybrid') {
+      setI2pStatus(null)
+      return
+    }
+    setI2pChecking(true)
+    ;(window as any).electron.invoke('node:check-i2pd')
+      .then((s: { installed: boolean; running: boolean }) => {
+        setI2pStatus(s)
+        setI2pChecking(false)
+      })
+      .catch(() => { setI2pStatus({ installed: false, running: false }); setI2pChecking(false) })
+  }, [config?.networkMode])
 
   useEffect(() => {
     window.NodeModeApi.getHotkey().then((h) => {
@@ -243,6 +259,51 @@ export function NodeModePanel() {
         <p className={`text-xs mt-1.5 ${textSub}`}>
           {NETWORK_MODES.find((m) => m.value === config.networkMode)?.description}
         </p>
+
+        {/* I2P daemon status — shown only when i2p or hybrid mode is selected */}
+        {(config.networkMode === 'i2p' || config.networkMode === 'hybrid') && (
+          <div className={`mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs ${
+            dark ? 'bg-gray-700/50' : 'bg-gray-100'
+          }`}>
+            {i2pChecking ? (
+              <>
+                <RefreshCw size={11} className={`animate-spin ${textSub}`} />
+                <span className={textSub}>Checking i2pd…</span>
+              </>
+            ) : i2pStatus?.running ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
+                <span className="text-green-400">i2pd running</span>
+              </>
+            ) : i2pStatus?.installed ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
+                <span className="text-yellow-300">i2pd installed but not running</span>
+                <button
+                  disabled={fixing}
+                  onClick={() => runSetup('sudo systemctl start i2pd || i2pd --daemon')}
+                  className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-600/70 hover:bg-yellow-600 text-white disabled:opacity-50 transition-colors"
+                >
+                  {fixing ? <RefreshCw size={10} className="animate-spin" /> : <Terminal size={10} />}
+                  Start
+                </button>
+              </>
+            ) : i2pStatus ? (
+              <>
+                <span className="w-2 h-2 rounded-full bg-yellow-400 shrink-0" />
+                <span className="text-yellow-300">i2pd not installed</span>
+                <button
+                  disabled={fixing}
+                  onClick={() => runSetup('sudo apt-get install -y i2pd && sudo systemctl enable --now i2pd')}
+                  className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded bg-yellow-600/70 hover:bg-yellow-600 text-white disabled:opacity-50 transition-colors"
+                >
+                  {fixing ? <RefreshCw size={10} className="animate-spin" /> : <Terminal size={10} />}
+                  Install
+                </button>
+              </>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Storage cap */}

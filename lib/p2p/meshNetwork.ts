@@ -125,6 +125,7 @@ export class MeshNetwork extends EventEmitter {
   private store: any = null
   private bee: any = null
   private connections: Set<any> = new Set()
+  private peerIds: Map<string, number> = new Map()
   private chunksShared = 0
   private chunksReceived = 0
   private isStarted = false
@@ -162,6 +163,7 @@ export class MeshNetwork extends EventEmitter {
         const peerId =
           info?.publicKey?.toString('hex')?.substring(0, 12) || 'unknown'
         this.connections.add(conn)
+        if (peerId !== 'unknown') this.peerIds.set(peerId, Date.now())
         console.log(
           `[mesh] peer connected: ${peerId} (total ${this.connections.size})`
         )
@@ -174,6 +176,7 @@ export class MeshNetwork extends EventEmitter {
         })
         conn.on('close', () => {
           this.connections.delete(conn)
+          this.peerIds.delete(peerId)
           console.log(
             `[mesh] peer disconnected: ${peerId} (total ${this.connections.size})`
           )
@@ -181,6 +184,7 @@ export class MeshNetwork extends EventEmitter {
         })
         conn.on('error', () => {
           this.connections.delete(conn)
+          this.peerIds.delete(peerId)
         })
       })
 
@@ -212,6 +216,7 @@ export class MeshNetwork extends EventEmitter {
         }
       }
       this.connections.clear()
+      this.peerIds.clear()
       if (this.swarm) await this.swarm.destroy()
       if (this.bee) await this.bee.close()
       if (this.store) await this.store.close()
@@ -402,6 +407,10 @@ export class MeshNetwork extends EventEmitter {
     } catch (err) {
       console.warn('[mesh] handleIncoming failed:', (err as Error).message)
     }
+  }
+
+  getPeers(): string[] {
+    return Array.from(this.peerIds.keys())
   }
 
   getStats(): MeshStats {

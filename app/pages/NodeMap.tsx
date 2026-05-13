@@ -4,7 +4,7 @@ import { useTheme } from "next-themes"
 import { Shield, Wifi, Activity, Globe, Eye, EyeOff, Map as MapIcon } from "lucide-react"
 import GlobeView from "../components/map/Globe"
 
-type NodeRole = "seed" | "validator" | "miner" | "peer" | "local"
+type NodeRole = "seed" | "validator" | "miner" | "peer" | "local" | "mesh"
 
 interface NetworkNode {
   id: string
@@ -46,6 +46,7 @@ const ROLE_COLORS: Record<NodeRole, string> = {
   miner: "#10b981",      // emerald — SN442 miner
   peer: "#10b981",       // emerald — local P2P mesh peer
   local: "#ffffff",      // white — this node
+  mesh: "#6b7280",       // grey — Hyperswarm unregistered peer
 }
 
 const LAYER_COLOR_MAP: Record<"lan" | "i2p" | "testnet", string> = {
@@ -60,6 +61,7 @@ const ROLE_PRIORITY: Record<NodeRole, number> = {
   miner: 3,
   peer: 2,
   local: 1,
+  mesh: 0,
 }
 
 const REGION_CENTERS: Record<string, [number, number]> = {
@@ -383,6 +385,7 @@ function renderTooltip(m: MapMarker, privacy: boolean, publicUrl: string | null)
     miner: "SN442 Miner",
     peer: "Peer Node",
     local: "Your Node (Local)",
+    mesh: "Mesh Peer (unregistered)",
   }
 
   const rows = m.nodes.slice(0, 6).map(n => {
@@ -443,20 +446,44 @@ export default function NodeMap() {
 
   useEffect(() => {
     let cancelled = false
-    const load = () => {
-      loadNetwork().then(({ nodes: n, connections: c, totalChunks }) => {
+    const load = async () => {
+      try {
+        const [{ nodes: n, connections: c, totalChunks }, meshPeers] = await Promise.all([
+          loadNetwork(),
+          (window as any).electron?.invoke?.('mesh:get-peers').catch(() => []) as Promise<string[]>,
+        ])
         if (cancelled) return
-        setNodes(n)
-        setConnections(c)
-        // Prefer the authoritative /feed/stats total; fall back to sum of per-peer chunkCount
-        // only if feed/stats is unreachable (peer counters are stale, so this is a degraded mode).
-        const sumFromPeers = n.reduce((a, b) => a + b.chunkCount, 0)
+
+        const meshNodes: NetworkNode[] = (meshPeers ?? []).map((peerId: string, i: number) => ({
+          id: `mesh-${peerId}`,
+          label: "Mesh Peer",
+          city: "Unknown",
+          country: "",
+          lat: REGION_CENTERS.Unknown[0] + ((i % 5) - 2) * 1.5,
+          lng: REGION_CENTERS.Unknown[1] + (Math.floor(i / 5) - 1) * 3,
+          chunkCount: 0,
+          role: "mesh" as NodeRole,
+          syncLayer: "lan" as const,
+          isCurrentNode: false,
+        }))
+        const meshConns: Connection[] = meshNodes.map(mn => ({
+          fromKey: mn.id,
+          toKey: "kali-local",
+          active: true,
+          layer: "lan" as const,
+        }))
+        const allNodes = [...n, ...meshNodes]
+        const allConns = [...c, ...meshConns]
+
+        setNodes(allNodes)
+        setConnections(allConns)
+        const sumFromPeers = allNodes.reduce((a, b) => a + b.chunkCount, 0)
         setStats({
-          nodes: n.length,
+          nodes: allNodes.length,
           chunks: totalChunks ?? sumFromPeers,
-          connections: c.filter(x => x.active).length,
+          connections: allConns.filter(x => x.active).length,
         })
-      }).catch(() => {})
+      } catch {}
     }
     load()
     // Poll every 30s so the chunk counter tracks the live feed as agents ship new content.
@@ -698,6 +725,9 @@ export default function NodeMap() {
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full inline-block" style={{ background: ROLE_COLORS.miner }} />Miner
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full inline-block" style={{ background: ROLE_COLORS.mesh }} />Mesh
             </span>
             <span className="flex items-center gap-1.5">
               <span className="w-3 h-3 rounded-full inline-block border border-gray-400" style={{ background: ROLE_COLORS.local }} />You

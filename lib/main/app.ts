@@ -191,6 +191,17 @@ app.whenReady().then(async () => {
 
 ipcMain.handle('p2p:public-url', () => null)
 ipcMain.handle('mesh:status', () => mesh.getStats())
+ipcMain.handle('mesh:get-peers', () => mesh.getPeers())
+
+ipcMain.handle('node:check-i2pd', () => {
+  const installed = (() => {
+    try { execSync('which i2pd', { stdio: 'ignore' }); return true } catch { return false }
+  })()
+  const running = (() => {
+    try { execSync('pgrep i2pd', { stdio: 'ignore' }); return true } catch { return false }
+  })()
+  return { installed, running }
+})
 
 app.on('before-quit', async () => {
   await p2pSync.stop()
