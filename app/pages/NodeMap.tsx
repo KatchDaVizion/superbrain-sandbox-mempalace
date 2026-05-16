@@ -342,10 +342,12 @@ async function loadNetwork(): Promise<{ nodes: NetworkNode[]; connections: Conne
 function groupNodes(nodes: NetworkNode[]): MapMarker[] {
   const buckets = new Map<string, NetworkNode[]>()
   for (const n of nodes) {
-    // Local node stays ungrouped so it reads as "You"
-    const key = n.isCurrentNode
-      ? `local:${n.id}`
-      : `${n.role === "seed" ? "seed:" : "geo:"}${n.city}|${Math.round(n.lat * 10)}|${Math.round(n.lng * 10)}`
+    // Seeds keep their own bucket; every other node (including "You" and mesh peers)
+    // groups purely by rounded lat/lng so LAN peers that arrive at the same physical
+    // location cluster together with a count badge automatically.
+    const key = n.role === "seed"
+      ? `seed:${n.city}`
+      : `geo:${Math.round(n.lat * 10)}|${Math.round(n.lng * 10)}`
     const list = buckets.get(key) || []
     list.push(n)
     buckets.set(key, list)
@@ -454,13 +456,16 @@ export default function NodeMap() {
         ])
         if (cancelled) return
 
+        // Mesh peers (Hyperswarm DHT) have no location data — place them at the
+        // same coords as the local "You" node so they cluster with it on the map.
+        // The count badge on the "You" marker then shows how many LAN peers are live.
         const meshNodes: NetworkNode[] = (meshPeers ?? []).map((peerId: string, i: number) => ({
           id: `mesh-${peerId}`,
           label: "Mesh Peer",
-          city: "Unknown",
+          city: "Local",
           country: "",
-          lat: REGION_CENTERS.Unknown[0] + ((i % 5) - 2) * 1.5,
-          lng: REGION_CENTERS.Unknown[1] + (Math.floor(i / 5) - 1) * 3,
+          lat: REGION_CENTERS.Canada[0],
+          lng: REGION_CENTERS.Canada[1],
           chunkCount: 0,
           role: "mesh" as NodeRole,
           syncLayer: "lan" as const,
@@ -786,7 +791,7 @@ export default function NodeMap() {
             </div>
             <div className="flex items-center gap-1.5">
               <Wifi className="w-3 h-3 text-amber-400" />
-              <span>Mesh peers grouped by geography</span>
+              <span>LAN mesh peers cluster with your node — hover to see count</span>
             </div>
           </div>
 
