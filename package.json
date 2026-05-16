@@ -1,6 +1,6 @@
 {
   "name": "superbrain-desktop",
-  "version": "12.1.0",
+  "version": "12.1.1",
   "description": "🚀Installing SuperBrain AI — Your Offline AI Assistant!",
   "main": "./out/main/main.js",
   "license": "MIT",
