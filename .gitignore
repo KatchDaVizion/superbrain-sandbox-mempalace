@@ -37,3 +37,6 @@ __pycache__/
 *.pem
 venv/
 temp
+
+# Qdrant pre-built binaries — download via npm run postinstall:qdrant
+resources/binaries/

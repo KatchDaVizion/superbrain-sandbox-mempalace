@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-QDRANT_VERSION="v1.12.4"
+QDRANT_VERSION="v1.18.0"
 BASE_URL="https://github.com/qdrant/qdrant/releases/download/${QDRANT_VERSION}"
 DEST_DIR="$(cd "$(dirname "$0")/.." && pwd)/resources/binaries"
 

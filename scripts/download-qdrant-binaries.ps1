@@ -3,7 +3,7 @@
 # Or via npm: npm run postinstall:qdrant
 
 param(
-  [string]$Version = "v1.12.4"
+  [string]$Version = "v1.18.0"
 )
 
 $ErrorActionPreference = "Stop"

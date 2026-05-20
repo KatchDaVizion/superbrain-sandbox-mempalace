@@ -15,7 +15,7 @@ All notable changes to the electron-react-app (ERA) are listed here.
 - Removed `docker run` button from NodeModePanel; replaced with live Qdrant status indicator
 - Added `scripts/download-qdrant-binaries.sh` + `.ps1` for build-time binary fetching
 - README updated to reflect zero-infrastructure setup (Docker row removed from prerequisites table)
-- Qdrant lifecycle manager (`lib/node/qdrantLifecycle.ts`) with stdout + polling fallback for cross-version readiness detection, 30s timeout, SIGTERM → SIGKILL clean shutdown
+- Qdrant v1.18.0 (May 2026 stable) lifecycle manager (`lib/node/qdrantLifecycle.ts`) with stdout + polling fallback for cross-version readiness detection, 30s timeout, SIGTERM → SIGKILL clean shutdown
 
 <br>
 
