@@ -38,26 +38,21 @@ SuperBrain AI is a **desktop AI chat application** built with **ElectronJS** and
 |---|---|---|
 | [Node.js](https://nodejs.org/) | 18+ | App runtime |
 | [Ollama](https://ollama.com/) | latest | Local LLM + embeddings |
-| [Docker](https://docs.docker.com/get-docker/) | latest | Runs Qdrant vector store (Node Mode) |
+
+> **No Docker required.** Qdrant runs as an embedded background process — started and stopped automatically by the app.
 
 ---
 
 ## Setup
 
-### 1. Start Qdrant (required for Node Mode)
-
-```bash
-docker run -d -p 6333:6333 --name qdrant qdrant/qdrant
-```
-
-### 2. Install Ollama and pull the embedding model
+### 1. Install Ollama and pull the embedding model
 
 ```bash
 # Install: https://ollama.com/download
 ollama pull nomic-embed-text
 ```
 
-### 3. Install and run
+### 2. Install and run
 
 ```bash
 git clone https://github.com/KatchDaVizion/superbrain-sandbox-mempalace.git
@@ -66,11 +61,13 @@ npm install
 npm run dev
 ```
 
-### 4. Enable Node Mode
+### 3. Enable Node Mode
 
 Open the app → Settings → Node Mode → toggle ON.
 
-The app runs a preflight check before starting: Ollama running ✓ · nomic-embed-text present ✓ · Qdrant healthy ✓. If anything is missing it tells you exactly what to fix.
+The app starts Qdrant automatically and runs a preflight check: Ollama running ✓ · nomic-embed-text present ✓. If anything is missing it tells you exactly what to fix.
+
+> **First-time dev build:** run `npm run postinstall:qdrant` once after cloning to download the Qdrant binary for your platform.
 
 ---
 
@@ -150,7 +147,7 @@ SuperBrain is **offline-first**. AI inference, your knowledge store, and your ch
 |---|---|---|
 | AI inference | **No** | Runs on local Ollama — your prompts never leave the machine |
 | Chat history | **No** | Stored locally in `~/.config/SuperBrain/` |
-| Knowledge store (RAG, ZIM) | **No** | Qdrant and ZIM files run on your disk |
+| Knowledge store (RAG, ZIM) | **No** | Qdrant runs locally as embedded binary (no Docker), ZIM files run on your disk |
 | Model downloads | **Yes** | Fetches Ollama models on first pull |
 | Knowledge sharing | **Yes** | Syncs chunks with other nodes so you earn TAO when someone retrieves them |
 | Bittensor chain | **Yes** | Read stake and check earnings. On-chain hotkey registration is a separate step via `btcli` — the app generates your keypair locally. |

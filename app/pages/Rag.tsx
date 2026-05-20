@@ -10,7 +10,6 @@ import { useLocation } from 'react-router-dom'
 import MobileStatusCards from '../components/ollama/MobileStatusCards'
 import IngestModal from '../components/rag/IngestModal'
 import { useRagOllama } from '../hooks/useRagOllama'
-import QdrantSetupModal from '../components/rag/QdrantSetupModal'
 import { useModels } from '../hooks/useModel'
 import RagHeader from '../components/rag/RagHeader'
 import { useCollections } from '@/lib/chat/CollectionsContext'
@@ -32,7 +31,6 @@ const Rag: React.FC = () => {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string | undefined>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [isQdrantRunning, setIsQdrantRunning] = useState<boolean | null>(null)
-  const [isCheckingQdrant, setIsCheckingQdrant] = useState(false)
 
   const {
     availableModels = [] as AvailableModel[],
@@ -61,7 +59,6 @@ const Rag: React.FC = () => {
 
   const [initializedFromPassed, setInitializedFromPassed] = useState(false)
   const [isModalOpen, setIsModalOpen] = useState(false)
-  const [showQdrantSetupModal, setShowQdrantSetupModal] = useState(false)
   const [showCollectionModal, setShowCollectionModal] = useState(false)
   const [collectionsLoading, setCollectionsLoading] = useState(false)
 
@@ -72,37 +69,20 @@ const Rag: React.FC = () => {
       (m.model && m.model === 'nomic-embed-text:latest') || (m.model && m.model.includes('nomic-embed-text'))
   )
 
-  // Check Qdrant status using Electron's net module via IPC
+  // Poll embedded Qdrant status — Qdrant starts automatically, this is display-only
   const checkQdrantStatus = async () => {
-    setIsCheckingQdrant(true)
-
     try {
       const result = await window.RAGApi.checkQdrantStatus()
-
-      if (!result || typeof result.running !== 'boolean') {
-        setIsQdrantRunning(false)
-      } else {
-        setIsQdrantRunning(result.running)
-      }
-    } catch (error) {
-      console.error('Qdrant status check failed:', error)
+      setIsQdrantRunning(result?.running === true)
+    } catch {
       setIsQdrantRunning(false)
-    } finally {
-      setIsCheckingQdrant(false)
     }
   }
 
   useEffect(() => {
     checkQdrantStatus()
-
-    // Check every 10 seconds if Qdrant is not running
-    // const interval = setInterval(() => {
-    //   if (!isQdrantRunning) {
-    //     checkQdrantStatus()
-    //   }
-    // }, 10000)
-
-    // return () => clearInterval(interval)
+    const id = setInterval(checkQdrantStatus, 3000)
+    return () => clearInterval(id)
   }, [])
 
   useEffect(() => {
@@ -113,28 +93,11 @@ const Rag: React.FC = () => {
   }, [passedModel, availableModels, initializedFromPassed, setSelectedModel])
 
   const handleAddDocumentClick = async () => {
-    // Always re-check Qdrant before opening anything
-    await checkQdrantStatus()
-
-    if (!isQdrantRunning) {
-      setShowQdrantSetupModal(true)
-      return
-    }
-
-    if (!isEmbedInstalled) {
-      setShowQdrantSetupModal(true)
-      return
-    }
-
+    // Qdrant is embedded and starts automatically — open IngestModal directly
     setIsModalOpen(true)
   }
 
   const fetchCollections = async () => {
-    if (!isQdrantRunning) {
-      setCollections([])
-      return
-    }
-
     try {
       setCollectionsLoading(true)
       const list = await window.RAGApi.listCollections()
@@ -148,9 +111,8 @@ const Rag: React.FC = () => {
   }
 
   useEffect(() => {
-    if (!isQdrantRunning) return
-    fetchCollections() // fetch only once on start
-  }, [isQdrantRunning])
+    fetchCollections()
+  }, [])
 
   // Auto-select the first collection when collections load
   useEffect(() => {
@@ -202,7 +164,7 @@ const Rag: React.FC = () => {
                   {/* 🔄 Refresh Collections Button */}
                   <button
                     onClick={fetchCollections}
-                    disabled={!isQdrantRunning || collectionsLoading}
+                    disabled={collectionsLoading}
                     className={`p-2 rounded-lg border transition-colors ${
                       resolvedTheme === 'dark'
                         ? 'border-gray-600 hover:border-purple-400 hover:bg-purple-500/10 disabled:opacity-50'
@@ -607,18 +569,6 @@ const Rag: React.FC = () => {
       {/* Ingest Modal */}
       <IngestModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
 
-      {/* Qdrant Setup Modal */}
-      <QdrantSetupModal
-        isOpen={showQdrantSetupModal}
-        onClose={() => setShowQdrantSetupModal(false)}
-        onProceed={() => {
-          setShowQdrantSetupModal(false)
-          setIsModalOpen(true)
-        }}
-        isQdrantRunning={isQdrantRunning}
-        isCheckingQdrant={isCheckingQdrant}
-        onRefreshStatus={checkQdrantStatus}
-      />
     </DashboardLayout>
   )
 }

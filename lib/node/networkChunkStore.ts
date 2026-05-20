@@ -7,6 +7,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readFileSync, writeFileSync } from 'fs'
 import { exec } from 'child_process'
+import { getQdrantLifecycle } from './qdrantLifecycle'
 
 const COLLECTION = 'network-chunks'
 const QDRANT_URL = 'http://localhost:6333'
@@ -172,6 +173,10 @@ export class NetworkChunkStore {
 
   async query(queryText: string, topK = 5): Promise<LocalQueryResult> {
     try {
+      // Ensure Qdrant is running before any network call
+      if (!getQdrantLifecycle().isReady()) {
+        await getQdrantLifecycle().start()
+      }
       const colRes = await fetch(`${QDRANT_URL}/collections/${COLLECTION}`)
       if (!colRes.ok) return { results: [], sufficient: false }
 

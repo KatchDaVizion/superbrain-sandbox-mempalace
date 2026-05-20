@@ -17,6 +17,7 @@ import { submitScore, fetchLeaderboard, calculateUserRank } from '../benchmark/l
 import { getNodeModeService } from '@/lib/node/nodeModeService'
 import { getNetworkChunkStore } from '@/lib/node/networkChunkStore'
 import { getLocalApiServer } from '@/lib/node/localApiServer'
+import { getQdrantLifecycle } from '@/lib/node/qdrantLifecycle'
 import { signShare, getIdentityPublicKeyHex, getContributorHotkey, setContributorHotkey } from './signing'
 
 import {
@@ -207,6 +208,7 @@ app.on('before-quit', async () => {
   await p2pSync.stop()
   await zimService.stop()
   await mesh.stop()
+  getQdrantLifecycle().stop()
 })
 
 // -----------------------
@@ -920,18 +922,19 @@ async function preflightNodeMode(): Promise<{ ok: true } | { ok: false; error: s
   } catch {
     return { ok: false, error: 'Ollama is not running. Install Ollama and start it before enabling Node Mode.' }
   }
-  try {
-    const qdrantRes = await fetch('http://localhost:6333/healthz', { signal: AbortSignal.timeout(3000) })
-    if (!qdrantRes.ok) return { ok: false, error: 'Qdrant is not running. See docs to install Qdrant locally.' }
-  } catch {
-    return { ok: false, error: 'Qdrant is not running. See docs to install Qdrant locally.' }
-  }
+  // Qdrant is started automatically by the embedded lifecycle manager — no manual check needed.
   return { ok: true }
 }
 
 export async function startNodeMode(svc: ReturnType<typeof getNodeModeService>): Promise<{ success: boolean; error?: string }> {
   const preflight = await preflightNodeMode()
   if (!preflight.ok) return { success: false, error: preflight.error }
+  try {
+    // Start embedded Qdrant before anything that touches localhost:6333
+    await getQdrantLifecycle().start()
+  } catch (err) {
+    return { success: false, error: `Qdrant failed to start: ${(err as Error).message}` }
+  }
   const store = getNetworkChunkStore()
   store.configure(svc.getConfig().storageCapMb)
   store.start()
@@ -1269,10 +1272,12 @@ ipcMain.handle('rag:ingest:job-status', (_event, jobId: string) => {
 })
 
 ipcMain.handle('rag:qdrant:status', async () => {
+  // Check embedded lifecycle state first; fall back to a live healthz probe
+  if (getQdrantLifecycle().isReady()) return { running: true }
   try {
-    const res = await fetch('http://localhost:6333/healthz')
+    const res = await fetch('http://localhost:6333/healthz', { signal: AbortSignal.timeout(1000) })
     return { running: res.ok }
-  } catch (e) {
+  } catch {
     return { running: false }
   }
 })

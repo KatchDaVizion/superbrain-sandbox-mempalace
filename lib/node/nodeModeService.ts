@@ -7,6 +7,7 @@ import { join } from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import os from 'os'
+import { getQdrantLifecycle } from './qdrantLifecycle'
 
 export type NetworkMode = 'lan' | 'i2p' | 'hybrid'
 
@@ -102,6 +103,9 @@ export class NodeModeService {
   async start(): Promise<void> {
     if (this._proc && this._proc.exitCode === null) return
 
+    // Start embedded Qdrant before the sync node tries to connect
+    await getQdrantLifecycle().start()
+
     const script = app.isPackaged
       ? join(process.resourcesPath, 'scripts', 'run_sync_node.py')
       : join(os.homedir(), 'superbrain-subnet', 'run_sync_node.py')
@@ -158,15 +162,17 @@ export class NodeModeService {
   }
 
   stop(): void {
-    if (!this._proc) return
-    try {
-      this._proc.kill('SIGTERM')
-    } catch {
-      // already dead
+    if (this._proc) {
+      try {
+        this._proc.kill('SIGTERM')
+      } catch {
+        // already dead
+      }
+      this._proc = null
+      this._startTime = null
+      console.log('[NodeMode] stopped')
     }
-    this._proc = null
-    this._startTime = null
-    console.log('[NodeMode] stopped')
+    getQdrantLifecycle().stop()
   }
 
   // Parse a stdout line from run_sync_node.py to extract stats.

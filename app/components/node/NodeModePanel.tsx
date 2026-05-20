@@ -40,6 +40,7 @@ export function NodeModePanel() {
   const [generating, setGenerating] = useState(false)
   const [generatedWallet, setGeneratedWallet] = useState<{ address: string; mnemonic: string } | null>(null)
   const [mnemonicCopied, setMnemonicCopied] = useState(false)
+  const [qdrantReady, setQdrantReady] = useState(false)
 
   useEffect(() => {
     if (config?.networkMode !== 'i2p' && config?.networkMode !== 'hybrid') {
@@ -61,6 +62,20 @@ export function NodeModePanel() {
       setHotkeyInput(h)
     }).catch(() => {})
   }, [])
+
+  // Poll Qdrant embedded lifecycle status while Node Mode is enabled
+  useEffect(() => {
+    if (!config?.enabled) { setQdrantReady(false); return }
+    let cancelled = false
+    const check = () => {
+      window.RagApi.checkQdrantStatus()
+        .then((s) => { if (!cancelled) setQdrantReady(s.running) })
+        .catch(() => { if (!cancelled) setQdrantReady(false) })
+    }
+    check()
+    const id = setInterval(check, 2000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [config?.enabled])
 
   const saveHotkey = useCallback(async () => {
     const trimmed = hotkeyInput.trim()
@@ -193,16 +208,6 @@ export function NodeModePanel() {
                 Pull Model
               </button>
             )}
-            {startError.includes('Qdrant') && (
-              <button
-                disabled={fixing}
-                onClick={() => runSetup('docker run -d -p 6333:6333 --name qdrant --restart unless-stopped qdrant/qdrant 2>/dev/null || docker start qdrant')}
-                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors"
-              >
-                {fixing ? <RefreshCw size={11} className="animate-spin" /> : <Terminal size={11} />}
-                Start Qdrant
-              </button>
-            )}
             {fixResult && (
               <span className={fixResult === 'Done' ? 'text-green-400' : 'text-red-400'}>{fixResult}</span>
             )}
@@ -217,12 +222,15 @@ export function NodeModePanel() {
             <span className={`w-2 h-2 rounded-full ${running ? 'bg-green-400' : 'bg-gray-500'}`} />
             {running ? 'Running' : 'Starting…'}
           </span>
+          <span className={`flex items-center gap-1 ${qdrantReady ? 'text-green-400' : 'text-yellow-400'}`}>
+            <HardDrive size={12} />
+            {qdrantReady ? 'Qdrant ready' : 'Qdrant starting…'}
+          </span>
           <span className={`flex items-center gap-1 ${textSub}`}>
             <Users size={12} />
             {peers} peer{peers !== 1 ? 's' : ''}
           </span>
           <span className={`flex items-center gap-1 ${textSub}`}>
-            <HardDrive size={12} />
             {chunks.toLocaleString()} chunks
           </span>
           {uptimeStr && (

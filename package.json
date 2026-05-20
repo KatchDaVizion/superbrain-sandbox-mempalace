@@ -1,7 +1,7 @@
 {
   "name": "superbrain-desktop",
-  "version": "12.1.1",
-  "description": "🚀Installing SuperBrain AI — Your Offline AI Assistant!",
+  "version": "12.2.0",
+  "description": "🚀SuperBrain AI — Offline AI with embedded vector store, no Docker required",
   "main": "./out/main/main.js",
   "license": "MIT",
   "author": {
@@ -23,7 +23,8 @@
     "build:win": "run-s vite:build:app electron:build:win",
     "build:mac": "run-s vite:build:app electron:build:mac",
     "build:linux": "run-s vite:build:app electron:build:linux",
-    "dist:linux": "run-s vite:build:app && npx electron-builder --linux deb AppImage"
+    "dist:linux": "run-s vite:build:app && npx electron-builder --linux deb AppImage",
+    "postinstall:qdrant": "bash scripts/download-qdrant-binaries.sh"
   },
   "repository": {
     "type": "git",

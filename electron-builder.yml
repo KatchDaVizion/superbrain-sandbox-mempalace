@@ -11,6 +11,23 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+extraResources:
+  - from: resources/binaries/qdrant-linux-x64
+    to: binaries/qdrant-linux-x64
+    filter:
+      - '**/*'
+  - from: resources/binaries/qdrant-mac-x64
+    to: binaries/qdrant-mac-x64
+    filter:
+      - '**/*'
+  - from: resources/binaries/qdrant-mac-arm64
+    to: binaries/qdrant-mac-arm64
+    filter:
+      - '**/*'
+  - from: resources/binaries/qdrant-win-x64
+    to: binaries/qdrant-win-x64
+    filter:
+      - '**/*'
 win:
   executableName: SuperBrain AI
 nsis:

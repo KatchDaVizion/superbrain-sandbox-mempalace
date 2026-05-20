@@ -4,6 +4,21 @@ All notable changes to the electron-react-app (ERA) are listed here.
 
 <br>
 
+### v12.2.0 — Zero-Docker Edition (2026-05-20)
+
+- **BREAKING (for the better):** Eliminated Docker dependency
+  - Qdrant vector store now runs as an embedded binary (~80MB per platform, statically linked)
+  - Started and stopped automatically with Node Mode — no user action required
+  - Storage relocated to `~/.config/SuperBrain/qdrant-storage/`
+- Onboarding simplified from 6 steps to 2: install Ollama → launch app
+- Removed QdrantSetupModal — no longer needed; RAG works immediately on launch
+- Removed `docker run` button from NodeModePanel; replaced with live Qdrant status indicator
+- Added `scripts/download-qdrant-binaries.sh` + `.ps1` for build-time binary fetching
+- README updated to reflect zero-infrastructure setup (Docker row removed from prerequisites table)
+- Qdrant lifecycle manager (`lib/node/qdrantLifecycle.ts`) with stdout + polling fallback for cross-version readiness detection, 30s timeout, SIGTERM → SIGKILL clean shutdown
+
+<br>
+
 ### v11.0.0
 
 - 🎉 Electron version upgraded `v36`
