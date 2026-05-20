@@ -66,6 +66,20 @@ export class QdrantLifecycle {
   async start(): Promise<void> {
     if (this._readyPromise) return this._readyPromise
 
+    // If something is already listening on 6333, adopt it — don't spawn a second instance.
+    // This handles dev environments where Qdrant is managed externally (systemd, brew service, etc.)
+    try {
+      const probe = await fetch('http://127.0.0.1:6333/healthz', {
+        signal: AbortSignal.timeout(800),
+      })
+      if (probe.ok) {
+        console.log('[Qdrant] Already running on port 6333 — adopting existing instance')
+        this._ready = true
+        this._readyPromise = Promise.resolve()
+        return this._readyPromise
+      }
+    } catch { /* nothing on 6333 yet — proceed to spawn */ }
+
     if (!existsSync(this._binaryPath)) {
       throw new Error(
         `Qdrant binary not found at ${this._binaryPath}. ` +
